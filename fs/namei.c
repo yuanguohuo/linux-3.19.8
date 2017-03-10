@@ -1815,6 +1815,11 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 		nd->last.name = name;
 		nd->last_type = type;
 
+    //Yuanguo: If we are processing the last component, return 0 without walking
+    //         through it. That's to say, in this function, we walk through all 
+    //         the components except the last one of a pathname. And the last
+    //         component info is saved in nd->last and nd->last_type for later 
+    //         walking.
 		name += hashlen_len(hash_len);
 		if (!*name)
 			return 0;
@@ -1989,6 +1994,10 @@ static int path_lookupat(int dfd, const char *name,
 	 */
 	err = path_init(dfd, name, flags, nd);
 	if (!err && !(flags & LOOKUP_PARENT)) {
+
+    //Yuanguo: we have walked through all components except the last one in
+    //function path_init-->link_path_walk, so walk through the last component
+    //here, its info was saved in nd->last and nd->last_type.
 		err = lookup_last(nd, &path);
 		while (err > 0) {
 			void *cookie;

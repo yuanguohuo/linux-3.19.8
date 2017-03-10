@@ -2813,6 +2813,9 @@ EXPORT_SYMBOL(mount_subtree);
 SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 		char __user *, type, unsigned long, flags, void __user *, data)
 {
+  printk(KERN_DEBUG "YuanguoDbg: Enter %s, dev_name=%s, dir_name=%s, type=%s, flags=%lu, data=%p\n", 
+      __func__, dev_name, dir_name, type, flags, data);
+
 	int ret;
 	char *kernel_type;
 	char *kernel_dev;
