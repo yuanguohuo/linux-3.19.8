@@ -2593,6 +2593,9 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	if (retval)
 		return retval;
 
+  printk(KERN_DEBUG "YuanguoDbg: %s, dev_name=%s, mnt_dir=%s, type_page=%s, flags=%lu, data_page=%p\n",
+      __func__, dev_name, path.dentry->d_name.name, type_page, flags, (void*)data_page);
+
 	retval = security_sb_mount(dev_name, &path,
 				   type_page, flags, data_page);
 	if (!retval && !may_mount())
@@ -2813,9 +2816,6 @@ EXPORT_SYMBOL(mount_subtree);
 SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 		char __user *, type, unsigned long, flags, void __user *, data)
 {
-  printk(KERN_DEBUG "YuanguoDbg: Enter %s, dev_name=%s, dir_name=%s, type=%s, flags=%lu, data=%p\n", 
-      __func__, dev_name, dir_name, type, flags, data);
-
 	int ret;
 	char *kernel_type;
 	char *kernel_dev;
@@ -2834,6 +2834,9 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 	ret = copy_mount_options(data, &data_page);
 	if (ret < 0)
 		goto out_data;
+
+  printk(KERN_DEBUG "YuanguoDbg: %s, kernel_dev=%s, kernel_type=%s, flags=%lu, data_page=%p\n",
+      __func__, kernel_dev, kernel_type, flags, (void*)data_page);
 
 	ret = do_mount(kernel_dev, dir_name, kernel_type, flags,
 		(void *) data_page);
