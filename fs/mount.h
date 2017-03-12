@@ -41,11 +41,16 @@ struct mount {
 	int mnt_count;
 	int mnt_writers;
 #endif
-	struct list_head mnt_mounts;	/* list of children, anchored here */
-	struct list_head mnt_child;	/* and going through their mnt_child */
+	struct list_head mnt_mounts;	/* list of children, anchored here */  //Yuanguo: head of my children;
+	struct list_head mnt_child;	/* and going through their mnt_child */  //Yuanguo: link to my siblings;
+
+  //Yuanguo: one device can be mounted multiple times, thus the superblock of
+  //the device may have multiple struct mount objs. sb->s_mounts is the head of
+  //the struct mount obj list, and mnt_instance links the objs together.
 	struct list_head mnt_instance;	/* mount instance on sb->s_mounts */
+
 	const char *mnt_devname;	/* Name of device e.g. /dev/dsk/hda1 */
-	struct list_head mnt_list;
+	struct list_head mnt_list;   //Yuanguo: link to other vfsmount objs belonging to the same namespace;
 	struct list_head mnt_expire;	/* link in fs-specific expiry list */
 	struct list_head mnt_share;	/* circular list of shared mounts */
 	struct list_head mnt_slave_list;/* list of slave mounts */

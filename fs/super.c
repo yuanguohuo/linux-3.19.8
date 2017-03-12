@@ -442,6 +442,8 @@ struct super_block *sget(struct file_system_type *type,
 retry:
 	spin_lock(&sb_lock);
 	if (test) {
+    //Yuanguo: check if the superblock of the device is already in list
+    //type->fs_supers. if it is the case, return the superblock directly.
 		hlist_for_each_entry(old, &type->fs_supers, s_instances) {
 			if (!test(old, data))
 				continue;
@@ -457,6 +459,8 @@ retry:
 	}
 	if (!s) {
 		spin_unlock(&sb_lock);
+    //Yuanguo: the superblock of the device is not in list type->fs_supers, we
+    //need to create a new superblock obj;
 		s = alloc_super(type, flags);
 		if (!s)
 			return ERR_PTR(-ENOMEM);

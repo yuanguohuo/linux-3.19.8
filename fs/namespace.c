@@ -913,8 +913,17 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
+  
+  //Yuanguo: mnt_parent and mnt_mountpoint are set to itself and its root
+  //temporarily. they will be set to its real parent and real mountpoint 
+  //later:   do_new_mount  -->
+  //         do_add_mount  -->
+  //         graft_tree    -->
+  //         attach_recursive_mnt -->
+  //         mnt_set_mountpoint
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
+
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &root->d_sb->s_mounts);
 	unlock_mount_hash();
@@ -1884,9 +1893,13 @@ retry:
 		mutex_unlock(&dentry->d_inode->i_mutex);
 		return ERR_PTR(-ENOENT);
 	}
+
 	namespace_lock();
+  printk(KERN_DEBUG "YuanguoDbg: %s, path->mnt=%p, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
+      __func__, path->mnt,  path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
+    printk(KERN_DEBUG "YuanguoDbg: %s, no mount on path\n", __func__);
 		struct mountpoint *mp = lookup_mountpoint(dentry);
 		if (!mp)
 			mp = new_mountpoint(dentry);
@@ -1897,6 +1910,8 @@ retry:
 		}
 		return mp;
 	}
+  printk(KERN_DEBUG "YuanguoDbg: %s, the mount on path: mnt->mnt_sb->s_id=%s, mnt->mnt_root->d_name.name=%s\n", 
+      __func__, mnt->mnt_sb->s_id, mnt->mnt_root->d_name.name);
 	namespace_unlock();
 	mutex_unlock(&path->dentry->d_inode->i_mutex);
 	path_put(path);
