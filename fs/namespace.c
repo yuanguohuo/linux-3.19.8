@@ -806,6 +806,8 @@ void mnt_set_mountpoint(struct mount *mnt,
 			struct mountpoint *mp,
 			struct mount *child_mnt)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): set parent and mountpoint of %s to [%s:%s]\n",
+      __func__, child_mnt->mnt_devname, mnt->mnt_devname, mp->m_dentry->d_name.name);
 	mp->m_count++;
 	mnt_add_count(mnt, 1);	/* essentially, that's mntget */
 	child_mnt->mnt_mountpoint = dget(mp->m_dentry);
@@ -834,8 +836,10 @@ static void attach_shadowed(struct mount *mnt,
 		hlist_add_behind_rcu(&mnt->mnt_hash, &shadows->mnt_hash);
 		list_add(&mnt->mnt_child, &shadows->mnt_child);
 	} else {
+    //Yuanguo: add to the mount_hashtable
 		hlist_add_head_rcu(&mnt->mnt_hash,
 				m_hash(&parent->mnt, mnt->mnt_mountpoint));
+    //Yuanguo: link mnt into parent's children list; 
 		list_add_tail(&mnt->mnt_child, &parent->mnt_mounts);
 	}
 }
@@ -852,13 +856,25 @@ static void commit_tree(struct mount *mnt, struct mount *shadows)
 
 	BUG_ON(parent == mnt);
 
+  //Yuanguo: 'mnt' is connected to a list, the list is for mounts belonging to 
+  //the same namespace (mnt->mnt_list is for this purpose). But now the list has
+  //not been joined into the namespace.
+  //I don't know how and when the mnt was connected to such a list, but from the
+  //code below, I guess 'mnt' is indeed in such a list.
+
+  //Yuanguo: add a dummy node 'head'.
 	list_add_tail(&head, &mnt->mnt_list);
+  //Yuanguo: iterate from the dummy node, add set namespace for each node;
 	list_for_each_entry(m, &head, mnt_list)
 		m->mnt_ns = n;
 
+  //Yuanguo: join the list in the namespace. notice that the dummy node 'head'
+  //is not joined.
 	list_splice(&head, n->list.prev);
 
+  //Yuanguo: add to the mount_hashtable
 	attach_shadowed(mnt, parent, shadows);
+
 	touch_mnt_namespace(n);
 }
 
@@ -911,6 +927,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 		return ERR_CAST(root);
 	}
 
+  //Yuanguo: set root dentry and super block of current mount;
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
   
@@ -924,6 +941,9 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
 
+  //Yuanguo: one device can be mounted multiple times, thus the superblock of
+  //the device may have multiple struct mount objs. d_sb->s_mounts is the head 
+  //of the struct mount obj list, and mnt_instance links the objs together.
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &root->d_sb->s_mounts);
 	unlock_mount_hash();
@@ -1840,6 +1860,9 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	int err;
 
 	if (IS_MNT_SHARED(dest_mnt)) {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [mnt_devname=%s] is shared\n",
+        __func__, dest_mnt->mnt_devname);
+
 		err = invent_group_ids(source_mnt, true);
 		if (err)
 			goto out;
@@ -1850,6 +1873,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 		for (p = source_mnt; p; p = next_mnt(p, source_mnt))
 			set_mnt_shared(p);
 	} else {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [mnt_devname=%s] is not shared\n",
+        __func__, dest_mnt->mnt_devname);
 		lock_mount_hash();
 	}
 	if (parent_path) {
@@ -1857,7 +1882,9 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 		attach_mnt(source_mnt, dest_mnt, dest_mp);
 		touch_mnt_namespace(source_mnt->mnt_ns);
 	} else {
+    //Yuanguo: set parent and mountpoint of source_mnt to dest_mnt and dest_mp;
 		mnt_set_mountpoint(dest_mnt, dest_mp, source_mnt);
+    //Yuanguo: add source_mnt to namespace; add source_mnt to mount_hashtable;
 		commit_tree(source_mnt, NULL);
 	}
 
@@ -1895,14 +1922,26 @@ retry:
 	}
 
 	namespace_lock();
-  printk(KERN_DEBUG "YuanguoDbg: %s, path->mnt=%p, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path->mnt=%p, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
       __func__, path->mnt,  path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
-    printk(KERN_DEBUG "YuanguoDbg: %s, no mount on path\n", __func__);
+    printk(KERN_DEBUG "YuanguoDbg func %s(): no mount on path\n", __func__);
+    //Yuanguo: lookup mountpoint from mountpoint_hashtable. I don't know why:
+    //there is no mount on path[parent-mount, dentry], is there mountpoing on
+    //dentry?
 		struct mountpoint *mp = lookup_mountpoint(dentry);
 		if (!mp)
+    {
 			mp = new_mountpoint(dentry);
+      printk(KERN_DEBUG "YuanguoDbg func %s(): new mountpoint [%p %s] on dentry [%p %s]. path->dentry=[%p %s]\n", 
+          __func__, mp->m_dentry, mp->m_dentry->d_name.name, dentry, dentry->d_name.name, path->dentry, path->dentry->d_name.name);
+    }
+    else
+    {
+      printk(KERN_DEBUG "YuanguoDbg func %s(): found mountpoint [%p %s] on dentry [%p %s]. path->dentry=[%p %s]\n", 
+          __func__, mp->m_dentry, mp->m_dentry->d_name.name, dentry, dentry->d_name.name, path->dentry, path->dentry->d_name.name);
+    }
 		if (IS_ERR(mp)) {
 			namespace_unlock();
 			mutex_unlock(&dentry->d_inode->i_mutex);
@@ -1910,7 +1949,7 @@ retry:
 		}
 		return mp;
 	}
-  printk(KERN_DEBUG "YuanguoDbg: %s, the mount on path: mnt->mnt_sb->s_id=%s, mnt->mnt_root->d_name.name=%s\n", 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): found mount on path: mnt->mnt_sb->s_id=%s, mnt->mnt_root->d_name.name=%s\n", 
       __func__, mnt->mnt_sb->s_id, mnt->mnt_root->d_name.name);
 	namespace_unlock();
 	mutex_unlock(&path->dentry->d_inode->i_mutex);
@@ -2328,6 +2367,9 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 		return -ENODEV;
 
 	if (user_ns != &init_user_ns) {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): user_ns=%p, &init_user_ns=%p\n", 
+        __func__, user_ns, &init_user_ns);
+
 		if (!(type->fs_flags & FS_USERNS_MOUNT)) {
 			put_filesystem(type);
 			return -EPERM;
@@ -2608,7 +2650,7 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 	if (retval)
 		return retval;
 
-  printk(KERN_DEBUG "YuanguoDbg: %s, dev_name=%s, mnt_dir=%s, type_page=%s, flags=%lu, data_page=%p\n",
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dev_name=%s, mnt_dir=%s, type_page=%s, flags=%lu, data_page=%p\n",
       __func__, dev_name, path.dentry->d_name.name, type_page, flags, (void*)data_page);
 
 	retval = security_sb_mount(dev_name, &path,
@@ -2850,7 +2892,7 @@ SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 	if (ret < 0)
 		goto out_data;
 
-  printk(KERN_DEBUG "YuanguoDbg: %s, kernel_dev=%s, kernel_type=%s, flags=%lu, data_page=%p\n",
+  printk(KERN_DEBUG "YuanguoDbg func %s(): kernel_dev=%s, kernel_type=%s, flags=%lu, data_page=%p\n",
       __func__, kernel_dev, kernel_type, flags, (void*)data_page);
 
 	ret = do_mount(kernel_dev, dir_name, kernel_type, flags,

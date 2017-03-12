@@ -28,9 +28,14 @@ struct mountpoint {
 
 struct mount {
 	struct hlist_node mnt_hash;
-	struct mount *mnt_parent;
-	struct dentry *mnt_mountpoint;
+
+  //Yuanguo: where this mount is mounted?
+	struct mount *mnt_parent;      //Yuanguo: parent mount;
+	struct dentry *mnt_mountpoint; //Yuanguo: the dentry in parent fs where this mount is mounted;
+
+  //Yuanguo: the super block and root dentry of this mount;
 	struct vfsmount mnt;
+
 	union {
 		struct rcu_head mnt_rcu;
 		struct llist_node mnt_llist;

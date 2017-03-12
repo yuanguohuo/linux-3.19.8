@@ -952,6 +952,9 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n",
+      __func__, fs_type->name, flags, dev_name, data);
+
 	struct block_device *bdev;
 	struct super_block *s;
 	fmode_t mode = FMODE_READ | FMODE_EXCL;
@@ -1107,6 +1110,10 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 			goto out_free_secdata;
 	}
 
+  //Yuanguo: for ext2:  ext2_mount()
+  //         for ext3:  ext3_mount()
+  //         for ext4:  ext4_mount()
+  //         for ramfs: ramfs_mount()
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {
 		error = PTR_ERR(root);

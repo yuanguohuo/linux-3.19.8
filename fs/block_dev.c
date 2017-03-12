@@ -1364,6 +1364,8 @@ EXPORT_SYMBOL(blkdev_get);
 struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 					void *holder)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path=%s\n", __func__, path);
+
 	struct block_device *bdev;
 	int err;
 
@@ -1681,9 +1683,12 @@ struct block_device *lookup_bdev(const char *pathname)
 	if (!pathname || !*pathname)
 		return ERR_PTR(-EINVAL);
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): pathname=%s\n", __func__, pathname);
 	error = kern_path(pathname, LOOKUP_FOLLOW, &path);
 	if (error)
 		return ERR_PTR(error);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): pathname path: [%s:%s]\n", __func__, path.mnt->mnt_sb->s_id, path.dentry->d_name.name);
 
 	inode = path.dentry->d_inode;
 	error = -ENOTBLK;
