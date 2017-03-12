@@ -454,6 +454,8 @@ retry:
 				destroy_super(s);
 				s = NULL;
 			}
+
+      printk(KERN_DEBUG "YuanguoDbg func %s(): found existing superblock\n", __func__);
 			return old;
 		}
 	}
@@ -461,6 +463,7 @@ retry:
 		spin_unlock(&sb_lock);
     //Yuanguo: the superblock of the device is not in list type->fs_supers, we
     //need to create a new superblock obj;
+    printk(KERN_DEBUG "YuanguoDbg func %s(): alloc new superblock\n", __func__);
 		s = alloc_super(type, flags);
 		if (!s)
 			return ERR_PTR(-ENOMEM);
@@ -952,13 +955,13 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data,
 	int (*fill_super)(struct super_block *, void *, int))
 {
-  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n",
-      __func__, fs_type->name, flags, dev_name, data);
-
 	struct block_device *bdev;
 	struct super_block *s;
 	fmode_t mode = FMODE_READ | FMODE_EXCL;
 	int error = 0;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n",
+      __func__, fs_type->name, flags, dev_name, data);
 
 	if (!(flags & MS_RDONLY))
 		mode |= FMODE_WRITE;
@@ -985,6 +988,8 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		goto error_s;
 
 	if (s->s_root) {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): super block has s_root\n", __func__);
+
 		if ((flags ^ s->s_flags) & MS_RDONLY) {
 			deactivate_locked_super(s);
 			error = -EBUSY;
@@ -1007,7 +1012,13 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		s->s_mode = mode;
 		strlcpy(s->s_id, bdevname(bdev, b), sizeof(s->s_id));
 		sb_set_blocksize(s, block_size(bdev));
+
+    printk(KERN_DEBUG "YuanguoDbg func %s(): super block does not have s_root, call fill_super function\n", __func__);
+    //Yuanguo: for ext2:  ext2_fill_super
+    //         for ext3:  ext3_fill_super
+    //         for ext4:  ext4_fill_super
 		error = fill_super(s, data, flags & MS_SILENT ? 1 : 0);
+
 		if (error) {
 			deactivate_locked_super(s);
 			goto error;
@@ -1050,9 +1061,13 @@ struct dentry *mount_nodev(struct file_system_type *fs_type,
 	int error;
 	struct super_block *s = sget(fs_type, NULL, set_anon_super, flags, NULL);
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s\n", __func__, fs_type->name);
+
 	if (IS_ERR(s))
 		return ERR_CAST(s);
 
+  //Yuanguo: for ramfs:  ramfs_fill_super
+  //         for rootfs: shmem_fill_super or ramfs_fill_super, depends on CONFIG_TMPFS configured or not
 	error = fill_super(s, data, flags & MS_SILENT ? 1 : 0);
 	if (error) {
 		deactivate_locked_super(s);
@@ -1110,10 +1125,11 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 			goto out_free_secdata;
 	}
 
-  //Yuanguo: for ext2:  ext2_mount()
-  //         for ext3:  ext3_mount()
-  //         for ext4:  ext4_mount()
-  //         for ramfs: ramfs_mount()
+  //Yuanguo: for ext2:   ext2_mount()
+  //         for ext3:   ext3_mount()
+  //         for ext4:   ext4_mount()
+  //         for ramfs:  ramfs_mount()
+  //         for rootfs: rootfs_mount()
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {
 		error = PTR_ERR(root);

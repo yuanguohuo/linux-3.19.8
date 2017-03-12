@@ -786,6 +786,8 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	__le32 features;
 	int err;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+
 	err = -ENOMEM;
 	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
 	if (!sbi)
@@ -1433,6 +1435,7 @@ static int ext2_statfs (struct dentry * dentry, struct kstatfs * buf)
 static struct dentry *ext2_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
 	return mount_bdev(fs_type, flags, dev_name, data, ext2_fill_super);
 }
 

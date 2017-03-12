@@ -219,6 +219,8 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *inode;
 	int err;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+
 	save_mount_options(sb, data);
 
 	fsi = kzalloc(sizeof(struct ramfs_fs_info), GFP_KERNEL);
@@ -248,6 +250,7 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 struct dentry *ramfs_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
 	return mount_nodev(fs_type, flags, data, ramfs_fill_super);
 }
 

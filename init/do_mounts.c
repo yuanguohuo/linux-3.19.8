@@ -603,6 +603,8 @@ static struct dentry *rootfs_mount(struct file_system_type *fs_type,
 	static unsigned long once;
 	void *fill = ramfs_fill_super;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
+
 	if (test_and_set_bit(0, &once))
 		return ERR_PTR(-ENODEV);
 

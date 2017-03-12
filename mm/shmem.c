@@ -2995,6 +2995,8 @@ int shmem_fill_super(struct super_block *sb, void *data, int silent)
 	struct shmem_sb_info *sbinfo;
 	int err = -ENOMEM;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+
 	/* Round up to L1_CACHE_BYTES to resist false sharing */
 	sbinfo = kzalloc(max((int)sizeof(struct shmem_sb_info),
 				L1_CACHE_BYTES), GFP_KERNEL);

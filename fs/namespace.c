@@ -1860,8 +1860,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	int err;
 
 	if (IS_MNT_SHARED(dest_mnt)) {
-    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [mnt_devname=%s] is shared\n",
-        __func__, dest_mnt->mnt_devname);
+    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [%p %s] is shared\n",
+        __func__, dest_mnt, dest_mnt->mnt_devname);
 
 		err = invent_group_ids(source_mnt, true);
 		if (err)
@@ -1873,8 +1873,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 		for (p = source_mnt; p; p = next_mnt(p, source_mnt))
 			set_mnt_shared(p);
 	} else {
-    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [mnt_devname=%s] is not shared\n",
-        __func__, dest_mnt->mnt_devname);
+    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [%p %s] is not shared\n",
+        __func__, dest_mnt, dest_mnt->mnt_devname);
 		lock_mount_hash();
 	}
 	if (parent_path) {
@@ -1922,8 +1922,8 @@ retry:
 	}
 
 	namespace_lock();
-  printk(KERN_DEBUG "YuanguoDbg func %s(): path->mnt=%p, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
-      __func__, path->mnt,  path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path->mnt=%p, path->mnt->mnt_sb->s_id=%s, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
+      __func__, path->mnt, path->mnt->mnt_sb->s_id, path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
     printk(KERN_DEBUG "YuanguoDbg func %s(): no mount on path\n", __func__);
