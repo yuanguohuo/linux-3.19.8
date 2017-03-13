@@ -1926,7 +1926,6 @@ retry:
       __func__, path->mnt, path->mnt->mnt_sb->s_id, path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
-    printk(KERN_DEBUG "YuanguoDbg func %s(): no mount on path\n", __func__);
     //Yuanguo: lookup mountpoint from mountpoint_hashtable. I don't know why:
     //there is no mount on path[parent-mount, dentry], is there mountpoing on
     //dentry?

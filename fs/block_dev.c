@@ -1364,10 +1364,10 @@ EXPORT_SYMBOL(blkdev_get);
 struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 					void *holder)
 {
-  printk(KERN_DEBUG "YuanguoDbg func %s(): path=%s\n", __func__, path);
-
 	struct block_device *bdev;
 	int err;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path=%s\n", __func__, path);
 
 	bdev = lookup_bdev(path);
 	if (IS_ERR(bdev))
