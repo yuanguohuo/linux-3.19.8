@@ -239,11 +239,16 @@ static int propagate_one(struct mount *m)
 	/* Notice when we are propagating across user namespaces */
 	if (m->mnt_ns->user_ns != user_ns)
 		type |= CL_UNPRIVILEGED;
+
+  //Yuanguo: make a copy of source mnt?
 	child = copy_tree(last_source, last_source->mnt.mnt_root, type);
 	if (IS_ERR(child))
 		return PTR_ERR(child);
 	child->mnt.mnt_flags &= ~MNT_LOCKED;
+
+  //Yuanguo: mount the copy on [m, mp]?
 	mnt_set_mountpoint(m, mp, child);
+
 	last_dest = m;
 	last_source = child;
 	if (m->mnt_master != dest_master) {

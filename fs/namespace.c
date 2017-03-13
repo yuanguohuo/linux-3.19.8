@@ -880,15 +880,15 @@ static void commit_tree(struct mount *mnt, struct mount *shadows)
 
 static struct mount *next_mnt(struct mount *p, struct mount *root)
 {
-	struct list_head *next = p->mnt_mounts.next;
-	if (next == &p->mnt_mounts) {
+	struct list_head *next = p->mnt_mounts.next;   //Yuanguo: get the 1st child.
+	if (next == &p->mnt_mounts) { //Yuanguo: the 1st child doesn't exist (it's the head of the list, a dummy node), begin backtracking.
 		while (1) {
-			if (p == root)
+			if (p == root)  //Yuanguo: backtracking has reached the root.
 				return NULL;
-			next = p->mnt_child.next;
-			if (next != &p->mnt_parent->mnt_mounts)
+			next = p->mnt_child.next;   //Yuanguo: get next sibling of p;
+			if (next != &p->mnt_parent->mnt_mounts) //Yuanguo: the next sibling exists (not the head of the list, a dummy node).
 				break;
-			p = p->mnt_parent;
+			p = p->mnt_parent; //Yuanguo: the next sibling doesn't exist, backtrack to it's parent;
 		}
 	}
 	return list_entry(next, struct mount, mnt_child);
@@ -1773,6 +1773,36 @@ static int invent_group_ids(struct mount *mnt, bool recurse)
 {
 	struct mount *p;
 
+  //Yuanguo: if recurse = true, traverse the tree in a depth-first way by backtracking algorithm.
+  //
+  //       +================+
+  //       |  struct mount  |
+  //       +----------------+
+  //       |  mnt_child     |
+  //       |  mnt_mounts    |
+  //       |  ...  |        |
+  //       +=======|========+
+  //               |
+  //               | children
+  //               |
+  //       +================+            +================+           +================+
+  //       |  struct mount  |            |  struct mount  |           |  struct mount  |
+  //       +----------------+  sibling   +----------------+  sibling  +----------------+  sibling
+  //       |  mnt_child  ---+----------> |  mnt_child  ---+---------> |  mnt_child  ---+-----------> ...
+  //       |  mnt_mounts    |            |  mnt_mounts    |           |  mnt_mounts    |
+  //       |  ...           |            |  ...  |        |           |  ...           |
+  //       +================+            +=======|========+           +================+
+  //                                             |
+  //                                             | children
+  //                                             |
+  //                                      +================+
+  //                                      |  struct mount  |
+  //                                      +----------------+  sibling
+  //                                      |  mnt_child  ---+----------> ...
+  //                                      |  mnt_mounts    |
+  //                                      |  ...           |
+  //                                      +================+
+  //
 	for (p = mnt; p; p = recurse ? next_mnt(p, mnt) : NULL) {
 		if (!p->mnt_group_id && !IS_MNT_SHARED(p)) {
 			int err = mnt_alloc_group_id(p);
@@ -1860,8 +1890,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	int err;
 
 	if (IS_MNT_SHARED(dest_mnt)) {
-    printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [%p %s] is shared\n",
-        __func__, dest_mnt, dest_mnt->mnt_devname);
+    printk(KERN_DEBUG "YuanguoDbg func %s(): propagate source_mnt [%p %s] to peer and slave mounts of dest_mnt [%p %s] because it's shared\n",
+        __func__, source_mnt, source_mnt->mnt_devname, dest_mnt, dest_mnt->mnt_devname);
 
 		err = invent_group_ids(source_mnt, true);
 		if (err)
@@ -1882,6 +1912,8 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 		attach_mnt(source_mnt, dest_mnt, dest_mp);
 		touch_mnt_namespace(source_mnt->mnt_ns);
 	} else {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): mount source_mnt [%p %s] on dest_mnt [%p %s], dest_mp [%s]\n",
+        __func__, source_mnt, source_mnt->mnt_devname, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry->d_name.name);
     //Yuanguo: set parent and mountpoint of source_mnt to dest_mnt and dest_mp;
 		mnt_set_mountpoint(dest_mnt, dest_mp, source_mnt);
     //Yuanguo: add source_mnt to namespace; add source_mnt to mount_hashtable;
