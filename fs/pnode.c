@@ -206,6 +206,10 @@ static int propagate_one(struct mount *m)
 {
 	struct mount *child;
 	int type;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): propagate to [%p %s]\n",
+      __func__, m, m->mnt_devname);
+
 	/* skip ones added by this propagate_mnt() */
 	if (IS_MNT_NEW(m))
 		return 0;
@@ -246,6 +250,9 @@ static int propagate_one(struct mount *m)
 		return PTR_ERR(child);
 	child->mnt.mnt_flags &= ~MNT_LOCKED;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): m=[%p %s] mp=[%s] child=[%p %s]\n",
+      __func__, m, m->mnt_devname, mp->m_dentry->d_name.name, child, child->mnt_devname);
+
   //Yuanguo: mount the copy on [m, mp]?
 	mnt_set_mountpoint(m, mp, child);
 
@@ -279,6 +286,9 @@ int propagate_mnt(struct mount *dest_mnt, struct mountpoint *dest_mp,
 	struct mount *m, *n;
 	int ret = 0;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [%p %s] dest_mp [%s], source_mnt [%p %s]\n",
+      __func__, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry->d_name.name, source_mnt, source_mnt->mnt_devname);
+
 	/*
 	 * we don't want to bother passing tons of arguments to
 	 * propagate_one(); everything is serialized by namespace_sem,
@@ -292,6 +302,8 @@ int propagate_mnt(struct mount *dest_mnt, struct mountpoint *dest_mp,
 	dest_master = dest_mnt->mnt_master;
 
 	/* all peers of dest_mnt, except dest_mnt itself */
+  printk(KERN_DEBUG "YuanguoDbg func %s(): propagate to peers of dest_mnt [%p %s]\n",
+      __func__, dest_mnt, dest_mnt->mnt_devname);
 	for (n = next_peer(dest_mnt); n != dest_mnt; n = next_peer(n)) {
 		ret = propagate_one(n);
 		if (ret)
@@ -299,6 +311,8 @@ int propagate_mnt(struct mount *dest_mnt, struct mountpoint *dest_mp,
 	}
 
 	/* all slave groups */
+  printk(KERN_DEBUG "YuanguoDbg func %s(): propagate to slaves of dest_mnt [%p %s]\n",
+      __func__, dest_mnt, dest_mnt->mnt_devname);
 	for (m = next_group(dest_mnt, dest_mnt); m;
 			m = next_group(m, dest_mnt)) {
 		/* everything in that slave group */
