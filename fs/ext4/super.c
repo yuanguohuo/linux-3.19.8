@@ -861,6 +861,8 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
 {
 	struct ext4_inode_info *ei;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+
 	ei = kmem_cache_alloc(ext4_inode_cachep, GFP_NOFS);
 	if (!ei)
 		return NULL;
@@ -893,6 +895,8 @@ static struct inode *ext4_alloc_inode(struct super_block *sb)
 	atomic_set(&ei->i_ioend_count, 0);
 	atomic_set(&ei->i_unwritten, 0);
 	INIT_WORK(&ei->i_rsv_conversion_work, ext4_end_io_rsv_work);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): ei=%p  &ei->vfs_inode=%p\n", __func__, ei, &ei->vfs_inode);
 
 	return &ei->vfs_inode;
 }

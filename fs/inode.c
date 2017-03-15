@@ -51,6 +51,31 @@
  *   inode_hash_lock
  */
 
+//Yuanguo:
+//
+//                                         +===========================+
+//                                         |     struct bdev_inode     |
+//                                         +---------------------------+
+//                                         |     +==============+      |
+//                                         |     |   bdev       |      |
+//                                         |     +--------------+      |
+//                                         |     |  bd_dev      |      |
+//                                         |     |  ....        |      |
+//                                         |     +==============+      |
+//                                         |                           |
+//                      ......             |     +==============+      |
+//                     +============+      |     | vfs_inode    |      |
+//                   4 | hlist_head |      |     +--------------+      |
+//                     +============+      |     |   i_sb       |      |
+//                   3 | hlist_head | -----+-----+-> i_hash ----+------+-----> ...
+//                     +============+      |     |   ....       |      |
+//                   2 | hlist_head |      |     +==============+      |
+//                     +============+      +===========================+
+//                   1 | hlist_head |     Yuanguo: the list with hash(i_sb,hash(bdev.bd_dev))=3
+//                     +============+
+//                   0 | hlist_head |
+//inode_hashtable -->  +============+
+//
 static unsigned int i_hash_mask __read_mostly;
 static unsigned int i_hash_shift __read_mostly;
 static struct hlist_head *inode_hashtable __read_mostly;
@@ -208,9 +233,17 @@ static struct inode *alloc_inode(struct super_block *sb)
 	struct inode *inode;
 
 	if (sb->s_op->alloc_inode)
+  {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_op->alloc_inode()\n", __func__);
 		inode = sb->s_op->alloc_inode(sb);
+  }
 	else
+  {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): kmem_cache_alloc()\n", __func__);
 		inode = kmem_cache_alloc(inode_cachep, GFP_KERNEL);
+  }
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
 
 	if (!inode)
 		return NULL;
@@ -1017,13 +1050,20 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 	}
 
 	inode = alloc_inode(sb);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
+
 	if (inode) {
 		struct inode *old;
 
 		spin_lock(&inode_hash_lock);
 		/* We released the lock, so.. */
 		old = find_inode(sb, head, test, data);
+
+    printk(KERN_DEBUG "YuanguoDbg func %s(): old=%p\n", __func__, old);
+
 		if (!old) {
+      printk(KERN_DEBUG "YuanguoDbg func %s(): call set, inode=%p\n", __func__, inode);
 			if (set(inode, data))
 				goto set_failed;
 

@@ -161,6 +161,9 @@ static struct kmem_cache * ext2_inode_cachep;
 static struct inode *ext2_alloc_inode(struct super_block *sb)
 {
 	struct ext2_inode_info *ei;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+
 	ei = kmem_cache_alloc(ext2_inode_cachep, GFP_KERNEL);
 	if (!ei)
 		return NULL;
@@ -169,6 +172,8 @@ static struct inode *ext2_alloc_inode(struct super_block *sb)
 #ifdef CONFIG_QUOTA
 	memset(&ei->i_dquot, 0, sizeof(ei->i_dquot));
 #endif
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): ei=%p  &ei->vfs_inode=%p\n", __func__, ei, &ei->vfs_inode);
 
 	return &ei->vfs_inode;
 }

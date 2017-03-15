@@ -553,6 +553,7 @@ static int bdev_test(struct inode *inode, void *data)
 
 static int bdev_set(struct inode *inode, void *data)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p BDEV_I(inode)=%p\n", __func__, inode, BDEV_I(inode));
 	BDEV_I(inode)->bdev.bd_dev = *(dev_t *)data;
 	return 0;
 }
@@ -570,6 +571,7 @@ struct block_device *bdget(dev_t dev)
 	if (!inode)
 		return NULL;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p BDEV_I(inode)=%p\n", __func__, inode, BDEV_I(inode));
 	bdev = &BDEV_I(inode)->bdev;
 
 	if (inode->i_state & I_NEW) {

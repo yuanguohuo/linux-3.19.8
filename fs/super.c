@@ -1125,11 +1125,25 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 			goto out_free_secdata;
 	}
 
-  //Yuanguo: for ext2:   ext2_mount()
-  //         for ext3:   ext3_mount()
-  //         for ext4:   ext4_mount()
-  //         for ramfs:  ramfs_mount()
-  //         for rootfs: rootfs_mount()
+  //Yuanguo: 
+  //for ext2:   
+  //    #if !defined(CONFIG_EXT2_FS) && !defined(CONFIG_EXT2_FS_MODULE) && defined(CONFIG_EXT4_USE_FOR_EXT23)
+  //         ext4_mount()    <--default
+  //    #else
+  //         ext2_mount()
+  //    #endif
+  //
+  //for ext3:   
+  //    #if !defined(CONFIG_EXT3_FS) && !defined(CONFIG_EXT3_FS_MODULE) && defined(CONFIG_EXT4_USE_FOR_EXT23)
+  //         ext4_mount()    <--default
+  //    #else
+  //         ext3_mount()
+  //    #endif
+  //
+  //for ext4  ext4_mount()
+  //for ramfs:  ramfs_mount()
+  //for rootfs: rootfs_mount()
+ 
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {
 		error = PTR_ERR(root);
