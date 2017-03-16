@@ -565,6 +565,8 @@ struct block_device *bdget(dev_t dev)
 	struct block_device *bdev;
 	struct inode *inode;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dev=%u\n", __func__, dev);
+
 	inode = iget5_locked(blockdev_superblock, hash(dev),
 			bdev_test, bdev_set, &dev);
 
@@ -592,6 +594,10 @@ struct block_device *bdget(dev_t dev)
 		spin_unlock(&bdev_lock);
 		unlock_new_inode(inode);
 	}
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+      __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
+
 	return bdev;
 }
 
@@ -630,6 +636,9 @@ EXPORT_SYMBOL(bdput);
 static struct block_device *bd_acquire(struct inode *inode)
 {
 	struct block_device *bdev;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+      __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
 	spin_lock(&bdev_lock);
 	bdev = inode->i_bdev;

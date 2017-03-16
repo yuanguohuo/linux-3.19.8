@@ -1316,6 +1316,8 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	uid_t i_uid;
 	gid_t i_gid;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] ino=%lu\n", __func__, sb, sb->s_id, ino);
+
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);

@@ -53,28 +53,28 @@
 
 //Yuanguo:
 //
-//                                         +===========================+
-//                                         |     struct bdev_inode     |
-//                                         +---------------------------+
-//                                         |     +==============+      |
-//                                         |     |   bdev       |      |
-//                                         |     +--------------+      |
-//                                         |     |  bd_dev      |      |
-//                                         |     |  ....        |      |
-//                                         |     +==============+      |
-//                                         |                           |
-//                      ......             |     +==============+      |
-//                     +============+      |     | vfs_inode    |      |
-//                   4 | hlist_head |      |     +--------------+      |
-//                     +============+      |     |   i_sb       |      |
-//                   3 | hlist_head | -----+-----+-> i_hash ----+------+-----> ...
-//                     +============+      |     |   ....       |      |
-//                   2 | hlist_head |      |     +==============+      |
-//                     +============+      +===========================+
-//                   1 | hlist_head |     Yuanguo: the list with hash(i_sb,hash(bdev.bd_dev))=3
-//                     +============+
-//                   0 | hlist_head |
-//inode_hashtable -->  +============+
+//                                    +==================+  +==================+  +======================+  +======================+
+//                                    | struct bdev_inode|  |struct nfs_inode  |  |struct ext4_inode_info|  |struct ext3_inode_info|
+//                                    +------------------+  +------------------+  +----------------------+  +----------------------+
+//                                    | +==============+ |  |                  |  |                      |  |                      |
+//                                    | |   bdev       | |  | fileid           |  |                      |  |                      |
+//                                    | +--------------+ |  | fh               |  |                      |  |                      |
+//                                    | |  bd_dev      | |  |                  |  |                      |  |                      |
+//                                    | |  ....        | |  |                  |  |                      |  |                      |
+//                                    | +==============+ |  |                  |  |                      |  |                      |
+//                                    |                  |  |                  |  |                      |  |                      |
+//                    ......          | +==============+ |  | +==============+ |  |   +==============+   |  |   +==============+   |
+//                   +============+   | | vfs_inode    | |  | | vfs_inode    | |  |   | vfs_inode    |   |  |   | vfs_inode    |   |
+//                  4| hlist_head |   | +--------------+ |  | +--------------+ |  |   +--------------+   |  |   +--------------+   |
+//                   +============+   | |   i_sb       | |  | |   i_sb       | |  |   |   i_sb       |   |  |   |   i_sb       |   |
+//                  3| hlist_head-+---+-+-> i_hash ----+-+--+-+-> i_hash ----+-+--+---+-> i_hash ----+---+--+---+-> i_hash ----+---+--> ...
+//                   +============+   | |    ...       | |  | |    ...       | |  |   |    ...       |   |  |   |    ...       |   |
+//                  2| hlist_head |   | +==============+ |  | +==============+ |  |   +==============+   |  |   +==============+   |
+//                   +============+   |      ...         |  |      ...         |  |        ...           |  |        ...           | 
+//                  1| hlist_head |   +==================+  +==================+  +======================+  +======================+
+//                   +============+         Yuanguo: the list with hash(i_sb, ...)=3
+//                  0| hlist_head |
+//inode_hashtable--> +============+
 //
 static unsigned int i_hash_mask __read_mostly;
 static unsigned int i_hash_shift __read_mostly;
@@ -231,6 +231,8 @@ EXPORT_SYMBOL(inode_init_always);
 static struct inode *alloc_inode(struct super_block *sb)
 {
 	struct inode *inode;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s]\n", __func__, sb, sb->s_id);
 
 	if (sb->s_op->alloc_inode)
   {
@@ -809,6 +811,9 @@ static struct inode *find_inode(struct super_block *sb,
 
 repeat:
 	hlist_for_each_entry(inode, head, i_hash) {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] inode->i_sb=[%p %s] inode=%p data=%p\n", 
+        __func__, sb, sb->s_id, inode->i_sb, inode->i_sb->s_id, inode, data);
+
 		if (inode->i_sb != sb)
 			continue;
 		if (!test(inode, data))
@@ -836,6 +841,9 @@ static struct inode *find_inode_fast(struct super_block *sb,
 
 repeat:
 	hlist_for_each_entry(inode, head, i_hash) {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] ino=%lu inode->i_sb=[%p %s] inode->i_ino=%lu\n", 
+        __func__, sb, sb->s_id, ino, inode->i_sb, inode->i_sb->s_id, inode->i_ino);
+
 		if (inode->i_ino != ino)
 			continue;
 		if (inode->i_sb != sb)
@@ -1037,8 +1045,12 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		int (*test)(struct inode *, void *),
 		int (*set)(struct inode *, void *), void *data)
 {
+  //Yuanguo: devtmpfs, nfs will call this function. 
+  //  for ext2/3/4, iget_locked() should be called instead.
 	struct hlist_head *head = inode_hashtable + hash(sb, hashval);
 	struct inode *inode;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s]\n", __func__, sb, sb->s_id);
 
 	spin_lock(&inode_hash_lock);
 	inode = find_inode(sb, head, test, data);
@@ -1049,6 +1061,12 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		return inode;
 	}
 
+  //Yuanguo: for devtmpfs, the allocated space should be enough for struct bdev_inode,
+  //         for nfs, the allocated space should be enough for struct nfs_inode,
+  //         because 'inode' will be forced later into struct bdev_inode or struct nfs_inode 
+  //         respectively:
+  //             see function bdev_test(the param test) and bdev_set(the param set) for devtmpfs;
+  //             see function nfs_find_actor(the param test) and nfs_init_locked(the param set) for nfs;
 	inode = alloc_inode(sb);
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
@@ -1077,6 +1095,8 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 			/* Return the locked inode with I_NEW set, the
 			 * caller is responsible for filling in the contents
 			 */
+
+      printk(KERN_DEBUG "YuanguoDbg func %s(): no old, return=%p\n", __func__, inode);
 			return inode;
 		}
 
@@ -1090,6 +1110,9 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		inode = old;
 		wait_on_inode(inode);
 	}
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): return=%p\n", __func__, inode);
+
 	return inode;
 
 set_failed:
@@ -1114,8 +1137,12 @@ EXPORT_SYMBOL(iget5_locked);
  */
 struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 {
+  //Yuanguo: for ext2/3/4, this function should be called.
+  //         for devtmpfs, nfs,iget5_locked() should be called instead.
 	struct hlist_head *head = inode_hashtable + hash(sb, ino);
 	struct inode *inode;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] ino=%lu\n", __func__, sb, sb->s_id, ino);
 
 	spin_lock(&inode_hash_lock);
 	inode = find_inode_fast(sb, head, ino);
@@ -1126,12 +1153,18 @@ struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 	}
 
 	inode = alloc_inode(sb);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
+
 	if (inode) {
 		struct inode *old;
 
 		spin_lock(&inode_hash_lock);
 		/* We released the lock, so.. */
 		old = find_inode_fast(sb, head, ino);
+
+    printk(KERN_DEBUG "YuanguoDbg func %s(): old=%p\n", __func__, old);
+
 		if (!old) {
 			inode->i_ino = ino;
 			spin_lock(&inode->i_lock);
@@ -1144,6 +1177,8 @@ struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 			/* Return the locked inode with I_NEW set, the
 			 * caller is responsible for filling in the contents
 			 */
+
+      printk(KERN_DEBUG "YuanguoDbg func %s(): no old, return=%p\n", __func__, inode);
 			return inode;
 		}
 
@@ -1157,6 +1192,9 @@ struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 		inode = old;
 		wait_on_inode(inode);
 	}
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): return=%p\n", __func__, inode);
+
 	return inode;
 }
 EXPORT_SYMBOL(iget_locked);
