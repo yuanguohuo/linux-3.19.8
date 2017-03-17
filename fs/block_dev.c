@@ -645,6 +645,8 @@ static struct block_device *bd_acquire(struct inode *inode)
 	if (bdev) {
 		ihold(bdev->bd_inode);
 		spin_unlock(&bdev_lock);
+
+    printk(KERN_DEBUG "YuanguoDbg func %s(): return existing block_device [%p %u]\n", __func__, bdev, bdev->bd_dev);
 		return bdev;
 	}
 	spin_unlock(&bdev_lock);
@@ -1296,6 +1298,8 @@ int blkdev_get(struct block_device *bdev, fmode_t mode, void *holder)
 
 	WARN_ON_ONCE((mode & FMODE_EXCL) && !holder);
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): bdev->bd_dev=%u\n", __func__, bdev->bd_dev);
+
 	if ((mode & FMODE_EXCL) && holder) {
 		whole = bd_start_claiming(bdev, holder);
 		if (IS_ERR(whole)) {
@@ -1702,6 +1706,10 @@ struct block_device *lookup_bdev(const char *pathname)
   printk(KERN_DEBUG "YuanguoDbg func %s(): pathname path: [%s:%s]\n", __func__, path.mnt->mnt_sb->s_id, path.dentry->d_name.name);
 
 	inode = path.dentry->d_inode;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+      __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
+
 	error = -ENOTBLK;
 	if (!S_ISBLK(inode->i_mode))
 		goto fail;

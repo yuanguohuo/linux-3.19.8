@@ -2867,6 +2867,9 @@ struct inode *ext3_iget(struct super_block *sb, unsigned long ino)
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+      __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
+
 	ei = EXT3_I(inode);
 	ei->i_block_alloc_info = NULL;
 

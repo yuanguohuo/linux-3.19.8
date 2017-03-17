@@ -439,6 +439,9 @@ struct super_block *sget(struct file_system_type *type,
 	struct super_block *old;
 	int err;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): type->name=%s, flags=%d, data=%p\n",
+      __func__, type->name, flags, data);
+
 retry:
 	spin_lock(&sb_lock);
 	if (test) {
@@ -1114,6 +1117,9 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 	struct super_block *sb;
 	char *secdata = NULL;
 	int error = -ENOMEM;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): type->name=%s flags=%d name=%s data=%p\n", 
+      __func__, type->name, flags, name, data);
 
 	if (data && !(type->fs_flags & FS_BINARY_MOUNTDATA)) {
 		secdata = alloc_secdata();

@@ -910,6 +910,9 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	struct mount *mnt;
 	struct dentry *root;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): type->name=%s flags=%d name=%s data=%p\n", 
+      __func__, type->name, flags, name, data);
+
 	if (!type)
 		return ERR_PTR(-ENODEV);
 
@@ -2343,6 +2346,9 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	struct mount *parent;
 	int err;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): newmnt->mnt=[%s %s] path=[%s %s]\n", 
+      __func__, newmnt->mnt.mnt_sb->s_id, newmnt->mnt.mnt_root->d_name.name, path->mnt->mnt_sb->s_id, path->dentry->d_name.name);
+
 	mnt_flags &= ~MNT_INTERNAL_FLAGS;
 
 	mp = lock_mount(path);
@@ -2389,6 +2395,9 @@ static int do_new_mount(struct path *path, const char *fstype, int flags,
 	struct user_namespace *user_ns = current->nsproxy->mnt_ns->user_ns;
 	struct vfsmount *mnt;
 	int err;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path=[%s %s] fstype=%s flags=%d mnt_flags=%d name=%s data=%p\n", 
+      __func__, path->mnt->mnt_sb->s_id, path->dentry->d_name.name, fstype, flags, mnt_flags, name, data);
 
 	if (!fstype)
 		return -EINVAL;
