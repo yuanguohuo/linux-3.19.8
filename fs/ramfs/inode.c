@@ -219,7 +219,7 @@ int ramfs_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *inode;
 	int err;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s\n", __func__, sb->s_id);
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s data=%p, silent=%d\n", __func__, sb->s_id, data, silent);
 
 	save_mount_options(sb, data);
 

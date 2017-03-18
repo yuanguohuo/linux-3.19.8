@@ -930,17 +930,17 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 		return ERR_CAST(root);
 	}
 
-  //Yuanguo: set root dentry and super block of current mount;
+  //Yuanguo: set root dentry and super block of current mount; they tell "who am I";
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
   
-  //Yuanguo: mnt_parent and mnt_mountpoint are set to itself and its root
-  //temporarily. they will be set to its real parent and real mountpoint 
-  //later:   do_new_mount  -->
-  //         do_add_mount  -->
-  //         graft_tree    -->
-  //         attach_recursive_mnt -->
-  //         mnt_set_mountpoint
+  //Yuanguo: mnt_parent and mnt_mountpoint ("who is my parent") are set to itself and its root
+  //         temporarily. they will be set to its real parent and real mountpoint 
+  //         later:   do_new_mount  -->
+  //                  do_add_mount  -->
+  //                  graft_tree    -->
+  //                  attach_recursive_mnt -->
+  //                  mnt_set_mountpoint
 	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
 	mnt->mnt_parent = mnt;
 
@@ -1892,6 +1892,9 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	struct hlist_node *n;
 	int err;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): source_mnt=[%p, %s] dest_mnt=[%p, %s] dest_mp->m_dentry=[%p, %s, %s]\n",
+      __func__, source_mnt, source_mnt->mnt_devname, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry, dest_mp->m_dentry->d_parent->d_name.name, dest_mp->m_dentry->d_name.name);
+
 	if (IS_MNT_SHARED(dest_mnt)) {
     printk(KERN_DEBUG "YuanguoDbg func %s(): propagate source_mnt [%p %s] to peer and slave mounts of dest_mnt [%p %s] because it's shared\n",
         __func__, source_mnt, source_mnt->mnt_devname, dest_mnt, dest_mnt->mnt_devname);
@@ -1949,6 +1952,15 @@ static struct mountpoint *lock_mount(struct path *path)
 {
 	struct vfsmount *mnt;
 	struct dentry *dentry = path->dentry;
+
+  //Yuanguo: this is a loop implemented by by "goto retry".
+  //  init:
+  //     path->mnt    = (param path->mnt)
+  //     path->dentry = (param path->dentry)
+  //  next loop (if there is a mount on path, say 'mnt'):
+  //     path->mnt = 'mnt'; 
+  //     path->dentry = root dentry of 'mnt';
+  //  until there is no mount on path;
 retry:
 	mutex_lock(&dentry->d_inode->i_mutex);
 	if (unlikely(cant_mount(dentry))) {
@@ -1957,8 +1969,10 @@ retry:
 	}
 
 	namespace_lock();
-  printk(KERN_DEBUG "YuanguoDbg func %s(): path->mnt=%p, path->mnt->mnt_sb->s_id=%s, path->dentry=%p, path->dentry->d_name.name=%s, path->dentry->d_parent->d_name.name=%s\n",
-      __func__, path->mnt, path->mnt->mnt_sb->s_id, path->dentry, path->dentry->d_name.name, path->dentry->d_parent->d_name.name);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): path->mnt=[%p, %s] path->dentry=[%p, %s, %s]\n", 
+      __func__, path->mnt, path->mnt->mnt_sb->s_id, path->dentry, path->dentry->d_parent->d_name.name, path->dentry->d_name.name);
+
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
     //Yuanguo: lookup mountpoint from mountpoint_hashtable. I don't know why:
@@ -2003,6 +2017,9 @@ static void unlock_mount(struct mountpoint *where)
 
 static int graft_tree(struct mount *mnt, struct mount *p, struct mountpoint *mp)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): mnt=[%p, %s] p=[%p, %s] mp->m_dentry=[%p, %s, %s]\n",
+      __func__, mnt, mnt->mnt_devname, p, p->mnt_devname, mp->m_dentry, mp->m_dentry->d_parent->d_name.name, mp->m_dentry->d_name.name);
+
 	if (mnt->mnt.mnt_sb->s_flags & MS_NOUSER)
 		return -EINVAL;
 
@@ -2347,7 +2364,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	int err;
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): newmnt->mnt=[%s %s] path=[%s %s]\n", 
-      __func__, newmnt->mnt.mnt_sb->s_id, newmnt->mnt.mnt_root->d_name.name, path->mnt->mnt_sb->s_id, path->dentry->d_name.name);
+      __func__, newmnt->mnt_devname, newmnt->mnt.mnt_root->d_name.name, path->mnt->mnt_sb->s_id, path->dentry->d_name.name);
 
 	mnt_flags &= ~MNT_INTERNAL_FLAGS;
 
@@ -2355,6 +2372,9 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	if (IS_ERR(mp))
 		return PTR_ERR(mp);
 
+  //Yuanguo: there 'parent' here does not mean "parent filesystem mount". A "struct mount" instance contains 
+  //         a member "struct vfsmount mnt". real_mount is just to get the containing "struct mount" instance
+  //         from the memeber "struct vfsmount mnt".
 	parent = real_mount(path->mnt);
 	err = -EINVAL;
 	if (unlikely(!check_mnt(parent))) {

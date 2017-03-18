@@ -286,8 +286,8 @@ int propagate_mnt(struct mount *dest_mnt, struct mountpoint *dest_mp,
 	struct mount *m, *n;
 	int ret = 0;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt [%p %s] dest_mp [%s], source_mnt [%p %s]\n",
-      __func__, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry->d_name.name, source_mnt, source_mnt->mnt_devname);
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dest_mnt=[%p, %s] dest_mp->m_dentry=[%p, %s, %s], source_mnt=[%p, %s]\n",
+      __func__, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry, dest_mp->m_dentry->d_parent->d_name.name, dest_mp->m_dentry->d_name.name, source_mnt, source_mnt->mnt_devname);
 
 	/*
 	 * we don't want to bother passing tons of arguments to

@@ -567,13 +567,18 @@ struct block_device *bdget(dev_t dev)
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): dev=%u\n", __func__, dev);
 
+  //Yuanguo: the inode returned here stands for a file in 'blockdev_superblock';
+  //         notice that the inode param of function bd_acquire stands for the device file in devtmpfs; e.g.
+  //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
 	inode = iget5_locked(blockdev_superblock, hash(dev),
 			bdev_test, bdev_set, &dev);
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+      __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
 	if (!inode)
 		return NULL;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p BDEV_I(inode)=%p\n", __func__, inode, BDEV_I(inode));
 	bdev = &BDEV_I(inode)->bdev;
 
 	if (inode->i_state & I_NEW) {
@@ -595,6 +600,8 @@ struct block_device *bdget(dev_t dev)
 		unlock_new_inode(inode);
 	}
 
+  //Yuanguo: the inode stands for a file in 'blockdev_superblock' (whose s_id="bdev"); e.g.
+  //         inode=[ffff880034750430 24576 bdev 0 8388640 ffff880034750340]
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
@@ -637,6 +644,10 @@ static struct block_device *bd_acquire(struct inode *inode)
 {
 	struct block_device *bdev;
 
+  //Yuanguo: the inode here stands for the device file in devtmpfs; e.g.
+  //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
+  //         in function bdget, we will get another 'inode',  that inode
+  //         stands for a file in 'blockdev_superblock';
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
@@ -651,6 +662,7 @@ static struct block_device *bd_acquire(struct inode *inode)
 	}
 	spin_unlock(&bdev_lock);
 
+  //Yuanguo: inode->i_bdev is null, so get block device by inode->i_rdev;
 	bdev = bdget(inode->i_rdev);
 	if (bdev) {
 		spin_lock(&bdev_lock);
@@ -662,6 +674,21 @@ static struct block_device *bd_acquire(struct inode *inode)
 			 * without igrab().
 			 */
 			ihold(bdev->bd_inode);
+
+      //Yuanguo:                      struct bdev_inode
+      //   inode->i_bdev ------>  +========================+
+      // the inode in devtmpfs    |  struct block_device   |
+      // corresponding to path    +------------------------+
+      // (such as /dev/sdb)       |   the block device     |
+      //                          |                        |
+      //                          |                        |
+      //                          +========================+
+      //                          |     struct inode       |
+      //                          +------------------------+
+      //                          |   the inode in         |
+      //                          |  blockdev_superblock   |
+      //                          |                        |
+      //                          +========================+
 			inode->i_bdev = bdev;
 			inode->i_mapping = bdev->bd_inode->i_mapping;
 			list_add(&inode->i_devices, &bdev->bd_inodes);
@@ -1298,7 +1325,7 @@ int blkdev_get(struct block_device *bdev, fmode_t mode, void *holder)
 
 	WARN_ON_ONCE((mode & FMODE_EXCL) && !holder);
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): bdev->bd_dev=%u\n", __func__, bdev->bd_dev);
+  printk(KERN_DEBUG "YuanguoDbg func %s(): bdev=[%p %u]\n", __func__, bdev, bdev->bd_dev);
 
 	if ((mode & FMODE_EXCL) && holder) {
 		whole = bd_start_claiming(bdev, holder);
@@ -1384,10 +1411,27 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): path=%s\n", __func__, path);
 
+  //Yuanguo: get block device based on path which looks like "/dev/sdb";
 	bdev = lookup_bdev(path);
 	if (IS_ERR(bdev))
 		return bdev;
 
+  //Yuanguo:            struct bdev_inode
+  //  bdev ------>  +========================+
+  //                |  struct block_device   |
+  //                +------------------------+
+  //                |   the block device     |
+  //                |                        |
+  //                |                        |
+  //                +========================+
+  //                |     struct inode       |
+  //                +------------------------+
+  //                |   the inode in         |
+  //                |  blockdev_superblock   |
+  //                |                        |
+  //                +========================+
+
+  //Yuanguo: open the block device
 	err = blkdev_get(bdev, mode, holder);
 	if (err)
 		return ERR_PTR(err);
@@ -1703,10 +1747,17 @@ struct block_device *lookup_bdev(const char *pathname)
 	if (error)
 		return ERR_PTR(error);
 
+  //Yuanguo: pathname looks like /dev/sdb;
+  //         'path' stands for the device-file in devtmpfs; e.g. 
+  //         pathname path: [devtmpfs:sdb]
   printk(KERN_DEBUG "YuanguoDbg func %s(): pathname path: [%s:%s]\n", __func__, path.mnt->mnt_sb->s_id, path.dentry->d_name.name);
 
 	inode = path.dentry->d_inode;
 
+  //Yuanguo: the inode here stands for the device file in devtmpfs; e.g.
+  //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
+  //         in function bd_acquire->bdget, we will get another 'inode',  that inode
+  //         stands for a file in 'blockdev_superblock';
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
@@ -1717,6 +1768,8 @@ struct block_device *lookup_bdev(const char *pathname)
 	if (path.mnt->mnt_flags & MNT_NODEV)
 		goto fail;
 	error = -ENOMEM;
+
+  //Yuanguo: get the block device based on the inode in devtmpfs;
 	bdev = bd_acquire(inode);
 	if (!bdev)
 		goto fail;

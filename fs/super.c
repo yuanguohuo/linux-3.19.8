@@ -168,6 +168,8 @@ static struct super_block *alloc_super(struct file_system_type *type, int flags)
 	static const struct super_operations default_op;
 	int i;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): type->name=%s flags=%d\n", __func__, type->name, flags);
+
 	if (!s)
 		return NULL;
 
@@ -433,7 +435,7 @@ struct super_block *sget(struct file_system_type *type,
 			int (*test)(struct super_block *,void *),
 			int (*set)(struct super_block *,void *),
 			int flags,
-			void *data)
+			void *data)  //Yuanguo: data is the pointer of block device for call path mount_bdev-->sget
 {
 	struct super_block *s = NULL;
 	struct super_block *old;
@@ -483,7 +485,7 @@ retry:
 	s->s_type = type;
 	strlcpy(s->s_id, type->name, sizeof(s->s_id));
 	list_add_tail(&s->s_list, &super_blocks);
-	hlist_add_head(&s->s_instances, &type->fs_supers);
+	hlist_add_head(&s->s_instances, &type->fs_supers); //Yuanguo: link to type->fs_supers list;
 	spin_unlock(&sb_lock);
 	get_filesystem(type);
 	register_shrinker(&s->s_shrink);
@@ -969,6 +971,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	if (!(flags & MS_RDONLY))
 		mode |= FMODE_WRITE;
 
+  //Yuanguo: get device; dev_name is something like /dev/sdb
 	bdev = blkdev_get_by_path(dev_name, mode, fs_type);
 	if (IS_ERR(bdev))
 		return ERR_CAST(bdev);
@@ -984,6 +987,8 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		error = -EBUSY;
 		goto error_bdev;
 	}
+  
+  //Yuanguo: get superblock;
 	s = sget(fs_type, test_bdev_super, set_bdev_super, flags | MS_NOSEC,
 		 bdev);
 	mutex_unlock(&bdev->bd_fsfreeze_mutex);
