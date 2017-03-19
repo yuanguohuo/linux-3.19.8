@@ -398,8 +398,8 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
 	struct iov_iter iter;
 	ssize_t ret;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=[%s, %s] len=%lu\n", 
-      __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  //printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=[%s, %s] len=%lu\n", 
+  //    __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
 
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
@@ -485,8 +485,8 @@ ssize_t new_sync_write(struct file *filp, const char __user *buf, size_t len, lo
 	struct iov_iter iter;
 	ssize_t ret;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=[%s, %s] len=%lu\n", 
-      __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  //printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=[%s, %s] len=%lu\n", 
+  //    __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
 
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
