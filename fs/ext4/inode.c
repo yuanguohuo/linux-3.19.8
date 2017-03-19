@@ -4056,12 +4056,14 @@ struct inode *ext4_iget(struct super_block *sb, unsigned long ino)
 		goto bad_inode;
 
 	if (S_ISREG(inode->i_mode)) {
-		inode->i_op = &ext4_file_inode_operations;
-		inode->i_fop = &ext4_file_operations;
+    //Yuanguo: this inode stands for a regular file;
+		inode->i_op = &ext4_file_inode_operations; //Yuanguo: setattr, getattr, setxattr, ...
+		inode->i_fop = &ext4_file_operations; //Yuanguo: llseek, read, write, open, mmap, ...
 		ext4_set_aops(inode);
 	} else if (S_ISDIR(inode->i_mode)) {
-		inode->i_op = &ext4_dir_inode_operations;
-		inode->i_fop = &ext4_dir_operations;
+    //Yuanguo: this inode stands for a dir;
+		inode->i_op = &ext4_dir_inode_operations; //Yuanguo: create, lookup, mkdir, ...
+		inode->i_fop = &ext4_dir_operations;      //Yuanguo: llseek, read, iterate, ...
 	} else if (S_ISLNK(inode->i_mode)) {
 		if (ext4_inode_is_fast_symlink(inode)) {
 			inode->i_op = &ext4_fast_symlink_inode_operations;

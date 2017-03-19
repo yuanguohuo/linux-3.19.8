@@ -213,6 +213,9 @@ static int ext4_file_open(struct inode * inode, struct file * filp)
 	struct path path;
 	char buf[64], *cp;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p, %s, %lu] filp->f_path=[%s, %s, %s]\n", 
+      __func__, inode, inode->i_sb->s_id, inode->i_ino, filp->f_path.mnt->mnt_mnt_sb->s_id, filp->f_path.dentry->d_parent->d_name.namename, filp->f_path.dentry->d_name.name);
+
 	if (unlikely(!(sbi->s_mount_flags & EXT4_MF_MNTDIR_SAMPLED) &&
 		     !(sb->s_flags & MS_RDONLY))) {
 		sbi->s_mount_flags |= EXT4_MF_MNTDIR_SAMPLED;

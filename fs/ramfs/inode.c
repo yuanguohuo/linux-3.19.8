@@ -104,8 +104,11 @@ ramfs_mknod(struct inode *dir, struct dentry *dentry, umode_t mode, dev_t dev)
 	struct inode * inode = ramfs_get_inode(dir->i_sb, dir, mode, dev);
 	int error = -ENOSPC;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dir=[%p, %s, %lu] dentry=[%p, %s, %s] inode=[%p, %s, %lu]\n", 
+      __func__, dir, dir->i_sb->s_id, dir->i_ino, dentry, dentry->d_parent->d_name.name, dentry->d_name.name, inode, inode->i_sb->s_id, inode->i_ino);
+
 	if (inode) {
-		d_instantiate(dentry, inode);
+		d_instantiate(dentry, inode); //Yuanguo: dentry->d_inode = inode
 		dget(dentry);	/* Extra count - pin the dentry in core */
 		error = 0;
 		dir->i_mtime = dir->i_ctime = CURRENT_TIME;
@@ -123,6 +126,8 @@ static int ramfs_mkdir(struct inode * dir, struct dentry * dentry, umode_t mode)
 
 static int ramfs_create(struct inode *dir, struct dentry *dentry, umode_t mode, bool excl)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dir=[%p, %s, %lu] dentry=[%p, %s, %s] mode=%u excl=%d\n", 
+      __func__, dir, dir->i_sb->s_id, dir->i_ino, dentry, dentry->d_parent->d_name.name, dentry->d_name.name, (unsigned)mode, excl);
 	return ramfs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 

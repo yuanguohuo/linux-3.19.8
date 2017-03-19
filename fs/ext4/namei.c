@@ -1391,6 +1391,9 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 	struct ext4_dir_entry_2 *de;
 	struct buffer_head *bh;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dir=[%p, %s, %lu] dentry=[%p, %s, %s] flags=%u\n", 
+      __func__, dir, dir->i_sb->s_id, dir->i_ino, dentry, dentry->d_parent->d_name.name, dentry->d_name.name, flags);
+
 	if (dentry->d_name.len > EXT4_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
@@ -2226,6 +2229,9 @@ static int ext4_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 	struct inode *inode;
 	int err, credits, retries = 0;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dir=[%p, %s, %lu] dentry=[%p, %s, %s] mode=%u excl=%d\n", 
+      __func__, dir, dir->i_sb->s_id, dir->i_ino, dentry, dentry->d_parent->d_name.name, dentry->d_name.name, (unsigned)mode, excl);
+
 	dquot_initialize(dir);
 
 	credits = (EXT4_DATA_TRANS_BLOCKS(dir->i_sb) +
@@ -2256,6 +2262,9 @@ static int ext4_mknod(struct inode *dir, struct dentry *dentry,
 	handle_t *handle;
 	struct inode *inode;
 	int err, credits, retries = 0;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): dir=[%p, %s, %lu] dentry=[%p, %s, %s] mode=%u rdev=%u\n", 
+      __func__, dir, dir->i_sb->s_id, dir->i_ino, dentry, dentry->d_parent->d_name.name, dentry->d_name.name, (unsigned)mode, (unsigned)rdev);
 
 	if (!new_valid_dev(rdev))
 		return -EINVAL;
