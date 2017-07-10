@@ -1785,6 +1785,8 @@ static int link_path_walk(const char *name, struct nameidata *nd)
  		if (err)
 			break;
 
+    //Yuanguo: hash_name get the next component from name, and calculate the component's hash and
+    //         len. And return (len<<32) | hash.
 		hash_len = hash_name(name);
 
 		type = LAST_NORM;
@@ -1890,10 +1892,10 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 			rcu_read_lock();
 			nd->seq = set_root_rcu(nd);
 		} else {
-			set_root(nd);
+			set_root(nd);      //Yuanguo: init nd->root by current fs;
 			path_get(&nd->root);
 		}
-		nd->path = nd->root;
+		nd->path = nd->root; //Yuanguo: nd->path is initialized by nd->root;
 	} else if (dfd == AT_FDCWD) {
 		if (flags & LOOKUP_RCU) {
 			struct fs_struct *fs = current->fs;
