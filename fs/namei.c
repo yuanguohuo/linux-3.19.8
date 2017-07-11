@@ -1785,8 +1785,8 @@ static int link_path_walk(const char *name, struct nameidata *nd)
  		if (err)
 			break;
 
-    //Yuanguo: hash_name get the next component from name, and calculate the component's hash and
-    //         len. And return (len<<32) | hash.
+    //Yuanguo: function hash_name() gets the next component from name, and calculate the component's 
+    //         hash and len. And return (len<<32) | hash.
 		hash_len = hash_name(name);
 
 		type = LAST_NORM;
@@ -1909,7 +1909,7 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 				nd->seq = __read_seqcount_begin(&nd->path.dentry->d_seq);
 			} while (read_seqcount_retry(&fs->seq, seq));
 		} else {
-			get_fs_pwd(current->fs, &nd->path);
+			get_fs_pwd(current->fs, &nd->path); //Yuanguo: init nd->path by pwd;
 		}
 	} else {
 		/* Caller must check execute permissions on the starting path component */

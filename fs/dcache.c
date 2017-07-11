@@ -100,6 +100,32 @@ static struct kmem_cache *dentry_cache __read_mostly;
 static unsigned int d_hash_mask __read_mostly;
 static unsigned int d_hash_shift __read_mostly;
 
+//Yuanguo:
+//          ......               +---------------+  +---------------+  +---------------+
+//          +---------------+    | struct dentry |  | struct dentry |  | struct dentry |
+//        5 | hlist_bl_head |    +---------------+  +---------------+  +---------------+
+//          +---------------+    |    ......     |  |    ......     |  |    ......     |
+//        4 | hlist_bl_head |    |    d_name     |  |    d_name     |  |    d_name     |
+//          +---------------+    |    d_parent   |  |    d_parent   |  |    d_parent   |
+//        3 | hlist_bl_head | ---+--> d_hash ----+--+--> d_hash ----+--+--> d_hash ----+---> ...
+//          +---------------+    |    ......     |  |    ......     |  |    ......     |
+//        2 | hlist_bl_head |    +---------------+  +---------------+  +---------------+
+//          +---------------+     the dentry list:  d_hash(d_parent, d_name.hash) = 3
+//        1 | hlist_bl_head |    
+//          +---------------+   
+//        0 | hlist_bl_head |
+//          +---------------+
+//
+//   Yuanguo: walking through a path "/a/b/c/d": 
+//     for example, when we've got dentry "b", and we need to look for the dentry of "c" in the dcache:
+//     then 
+//         dentry "b" is the parent; 
+//         "c" is the name (say, whose hash is hc);
+//
+//     1. calculate d_hash(parent, hc); the result is 3 for example;
+//     2. for each 'dentry' in the list (dentry_hashtable+3), check if 'dentry' is what we are looking for:
+//                 dentry.d_parent == parent
+//                 dentry.d_name   == "c"
 static struct hlist_bl_head *dentry_hashtable __read_mostly;
 
 static inline struct hlist_bl_head *d_hash(const struct dentry *parent,

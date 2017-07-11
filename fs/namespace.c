@@ -59,6 +59,27 @@ static DEFINE_SPINLOCK(mnt_id_lock);
 static int mnt_id_start = 0;
 static int mnt_group_start = 1;
 
+ //Yuanguo:
+ //
+ //           ......
+ //         +------------+    +-------------------+     +-------------------+
+ //       4 | hlist_head |    |    struct mount   |     |    struct mount   |
+ //         +------------+    +-------------------+     +-------------------+
+ //       3 | hlist_head |----+-> mnt_hash -------+-----+-> mnt_hash -------+---> ...
+ //         +------------+    |   mnt_parent      |     |   mnt_parent      |
+ //       2 | hlist_head |    |   mnt_mountpoint  |     |   mnt_mountpoint  |
+ //         +------------+    |   ......          |     |   ......          |
+ //       1 | hlist_head |    +-------------------+     +-------------------+
+ //         +------------+   the mount list:  m_hash(mnt_parent, mnt_mountpoint) = 3
+ //       0 | hlist_head |
+ //         +------------+
+ //
+ // When lookup the struct mount instance that is mounted on mnt-of-parent-fs, dentry-in-parent-fs:
+ //    1. calculate m_hash(mnt-of-parent-fs, dentry-in-parent-fs); the result is 3 for example;
+ //    2. for each 'mount' in the list (mount_hashtable+3), check if 'mount' is what we are looking for:
+ //            mount.mnt_parent     == mnt-of-parent-fs
+ //            mount.mnt_mountpoint == dentry-in-parent-fs
+ // see __lookup_mnt()
 static struct hlist_head *mount_hashtable __read_mostly;
 static struct hlist_head *mountpoint_hashtable __read_mostly;
 static struct kmem_cache *mnt_cache __read_mostly;
@@ -1976,7 +1997,7 @@ retry:
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
     //Yuanguo: lookup mountpoint from mountpoint_hashtable. I don't know why:
-    //there is no mount on path[parent-mount, dentry], is there mountpoing on
+    //there is no mount on path[parent-mount, dentry], is there mountpoint on
     //dentry?
 		struct mountpoint *mp = lookup_mountpoint(dentry);
 		if (!mp)
@@ -2372,9 +2393,7 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 	if (IS_ERR(mp))
 		return PTR_ERR(mp);
 
-  //Yuanguo: there 'parent' here does not mean "parent filesystem mount". A "struct mount" instance contains 
-  //         a member "struct vfsmount mnt". real_mount is just to get the containing "struct mount" instance
-  //         from the memeber "struct vfsmount mnt".
+  //Yuanguo: 'path' is "the filesystem which I am mounted on", in other words, it tells "who is my parent".
 	parent = real_mount(path->mnt);
 	err = -EINVAL;
 	if (unlikely(!check_mnt(parent))) {
@@ -2693,7 +2712,7 @@ char *copy_mount_string(const void __user *data)
 long do_mount(const char *dev_name, const char __user *dir_name,
 		const char *type_page, unsigned long flags, void *data_page)
 {
-	struct path path;
+	struct path path;  //Yuanguo: include/linux/path.h
 	int retval = 0;
 	int mnt_flags = 0;
 
