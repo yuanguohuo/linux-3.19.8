@@ -1804,6 +1804,8 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 			struct dentry *parent = nd->path.dentry;
 			nd->flags &= ~LOOKUP_JUMPED;
 			if (unlikely(parent->d_flags & DCACHE_OP_HASH)) {
+        //Yuanguo: if the filesystem has a specific hash function for filename, 
+        //  re-calculate the hash_len, using that function;
 				struct qstr this = { { .hash_len = hash_len }, .name = name };
 				err = parent->d_op->d_hash(parent, &this);
 				if (err < 0)
@@ -1813,6 +1815,9 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 			}
 		}
 
+    //Yuanguo: nd->path is the info of parent dir;
+    //         the following 3 fields is the info of what we're looking for in the parent dir;
+    //   they are key input of walk_component() function below;
 		nd->last.hash_len = hash_len;
 		nd->last.name = name;
 		nd->last_type = type;
@@ -1890,12 +1895,12 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 	if (*name=='/') {
 		if (flags & LOOKUP_RCU) {
 			rcu_read_lock();
-			nd->seq = set_root_rcu(nd);
+			nd->seq = set_root_rcu(nd); //Yuanguo: init nd->root by current fs;
 		} else {
 			set_root(nd);      //Yuanguo: init nd->root by current fs;
 			path_get(&nd->root);
 		}
-		nd->path = nd->root; //Yuanguo: nd->path is initialized by nd->root;
+		nd->path = nd->root; //Yuanguo: nd->path is initialized by nd->root; so nd->path is root of current fs;
 	} else if (dfd == AT_FDCWD) {
 		if (flags & LOOKUP_RCU) {
 			struct fs_struct *fs = current->fs;
@@ -1951,6 +1956,11 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 	return -ECHILD;
 done:
 	current->total_link_count = 0;
+
+  //Yuanguo: now, nd->path is the "root" of current fs:
+  //            nd->path.dentry = root dentry of current fs
+  //            nd->path.mnt = vfsmount of current fs
+  //         so, walk from nd->path ...
 	return link_path_walk(name, nd);
 }
 
