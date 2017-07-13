@@ -971,7 +971,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 	if (!(flags & MS_RDONLY))
 		mode |= FMODE_WRITE;
 
-  //Yuanguo: get device; dev_name is something like /dev/sdb
+  //Yuanguo: get device; dev_name: /dev/sdb
 	bdev = blkdev_get_by_path(dev_name, mode, fs_type);
 	if (IS_ERR(bdev))
 		return ERR_CAST(bdev);
@@ -1115,6 +1115,7 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
+//Yuanguo: return the root dentry of the mounted fs; 
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {

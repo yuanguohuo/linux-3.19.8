@@ -860,6 +860,7 @@ static void attach_shadowed(struct mount *mnt,
     //Yuanguo: add to the mount_hashtable
 		hlist_add_head_rcu(&mnt->mnt_hash,
 				m_hash(&parent->mnt, mnt->mnt_mountpoint));
+
     //Yuanguo: link mnt into parent's children list; 
 		list_add_tail(&mnt->mnt_child, &parent->mnt_mounts);
 	}
@@ -885,6 +886,7 @@ static void commit_tree(struct mount *mnt, struct mount *shadows)
 
   //Yuanguo: add a dummy node 'head'.
 	list_add_tail(&head, &mnt->mnt_list);
+
   //Yuanguo: iterate from the dummy node, add set namespace for each node;
 	list_for_each_entry(m, &head, mnt_list)
 		m->mnt_ns = n;
@@ -944,6 +946,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (flags & MS_KERNMOUNT)
 		mnt->mnt.mnt_flags = MNT_INTERNAL;
 
+  //Yuanguo: the returned 'root' is the root dentry of the mounted fs; 
 	root = mount_fs(type, flags, name, data);
 	if (IS_ERR(root)) {
 		mnt_free_id(mnt);
@@ -1903,9 +1906,9 @@ static int invent_group_ids(struct mount *mnt, bool recurse)
  * Must be called without spinlocks held, since this function can sleep
  * in allocations.
  */
-static int attach_recursive_mnt(struct mount *source_mnt,
-			struct mount *dest_mnt,
-			struct mountpoint *dest_mp,
+static int attach_recursive_mnt(struct mount *source_mnt, //Yuanguo: new mount
+			struct mount *dest_mnt,  //Yuanguo: mount parent;
+			struct mountpoint *dest_mp,  //Yuanguo: mount point in parent;
 			struct path *parent_path)
 {
 	HLIST_HEAD(tree_list);
@@ -1934,6 +1937,7 @@ static int attach_recursive_mnt(struct mount *source_mnt,
         __func__, dest_mnt, dest_mnt->mnt_devname);
 		lock_mount_hash();
 	}
+
 	if (parent_path) {
 		detach_mnt(source_mnt, parent_path);
 		attach_mnt(source_mnt, dest_mnt, dest_mp);
@@ -1941,8 +1945,10 @@ static int attach_recursive_mnt(struct mount *source_mnt,
 	} else {
     printk(KERN_DEBUG "YuanguoDbg func %s(): mount source_mnt [%p %s] on dest_mnt [%p %s], dest_mp [%s]\n",
         __func__, source_mnt, source_mnt->mnt_devname, dest_mnt, dest_mnt->mnt_devname, dest_mp->m_dentry->d_name.name);
+
     //Yuanguo: set parent and mountpoint of source_mnt to dest_mnt and dest_mp;
 		mnt_set_mountpoint(dest_mnt, dest_mp, source_mnt);
+
     //Yuanguo: add source_mnt to namespace; add source_mnt to mount_hashtable;
 		commit_tree(source_mnt, NULL);
 	}
@@ -1996,9 +2002,6 @@ retry:
 
 	mnt = lookup_mnt(path);
 	if (likely(!mnt)) {
-    //Yuanguo: lookup mountpoint from mountpoint_hashtable. I don't know why:
-    //there is no mount on path[parent-mount, dentry], is there mountpoint on
-    //dentry?
 		struct mountpoint *mp = lookup_mountpoint(dentry);
 		if (!mp)
     {
@@ -2389,11 +2392,18 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 
 	mnt_flags &= ~MNT_INTERNAL_FLAGS;
 
+  //Yuanguo: 
+  //  there might be filesystem-1 mounted on path->dentry,
+  //                 filesystem-2 mounted on root dentry of filesystem-1
+  //                 filesystem-3 mounted on root dentry of filesystem-2
+  //                 ...
+  //  follow these until there is no mount;
+  //  then, create a mountpoint on the last dentry if there no one;
 	mp = lock_mount(path);
 	if (IS_ERR(mp))
 		return PTR_ERR(mp);
 
-  //Yuanguo: 'path' is "the filesystem which I am mounted on", in other words, it tells "who is my parent".
+  //Yuanguo: 'path' is "the filesystem on which the newmnt is mounted", in other words, it tells "who is newmnt's parent".
 	parent = real_mount(path->mnt);
 	err = -EINVAL;
 	if (unlikely(!check_mnt(parent))) {
@@ -2416,6 +2426,9 @@ static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 		goto unlock;
 
 	newmnt->mnt.mnt_flags = mnt_flags;
+
+  //Yuanguo: parent is the parent filesystem's mount;
+  //         mp is the mountpoint in parement filesystem;
 	err = graft_tree(newmnt, parent, mp);
 
 unlock:
@@ -2725,7 +2738,7 @@ long do_mount(const char *dev_name, const char __user *dir_name,
 		((char *)data_page)[PAGE_SIZE - 1] = 0;
 
 	/* ... and get the mountpoint */
-	retval = user_path(dir_name, &path);
+	retval = user_path(dir_name, &path); //Yuanguo: returned path is the mount point;
 	if (retval)
 		return retval;
 

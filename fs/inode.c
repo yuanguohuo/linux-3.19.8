@@ -1039,7 +1039,7 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		int (*test)(struct inode *, void *),
 		int (*set)(struct inode *, void *), void *data)
 {
-  //Yuanguo: devtmpfs, nfs will call this function. 
+  //Yuanguo: blockdev_superblock, nfs, fuse and etc will call this function. 
   //  for ext2/3/4, iget_locked() should be called instead.
 	struct hlist_head *head = inode_hashtable + hash(sb, hashval);
 	struct inode *inode;
@@ -1056,12 +1056,12 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		return inode;
 	}
 
-  //Yuanguo: for devtmpfs, the allocated space should be enough for struct bdev_inode,
+  //Yuanguo: for blockdev_superblock, the allocated space should be enough for struct bdev_inode,
   //         for nfs, the allocated space should be enough for struct nfs_inode,
-  //         because 'inode' will be forced later into struct bdev_inode or struct nfs_inode 
+  //         because 'inode' will be forced later into 'struct bdev_inode' or 'struct nfs_inode' 
   //         respectively:
-  //             see function bdev_test(the param test) and bdev_set(the param set) for devtmpfs;
-  //             see function nfs_find_actor(the param test) and nfs_init_locked(the param set) for nfs;
+  //             see function BDEV_I called in bdev_test(the param test) and bdev_set(the param set) for blockdev_superblock;
+  //             see function NFS_I called in nfs_find_actor(the param test) and nfs_init_locked(the param set) for nfs;
 	inode = alloc_inode(sb);
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
@@ -1080,6 +1080,7 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 			if (set(inode, data))
 				goto set_failed;
 
+      //Yuanguo: add the newly allocated inode in inode_hashtable;
 			spin_lock(&inode->i_lock);
 			inode->i_state = I_NEW;
 			hlist_add_head(&inode->i_hash, head);
@@ -1138,7 +1139,7 @@ EXPORT_SYMBOL(iget5_locked);
 struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 {
   //Yuanguo: for ext2/3/4, this function should be called.
-  //         for devtmpfs, nfs,iget5_locked() should be called instead.
+  //         for blockdev_superblock, nfs, iget5_locked() should be called instead.
 	struct hlist_head *head = inode_hashtable + hash(sb, ino);
 	struct inode *inode;
 

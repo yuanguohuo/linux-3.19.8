@@ -79,7 +79,7 @@ int register_filesystem(struct file_system_type * fs)
 	if (*p)
 		res = -EBUSY;
 	else
-		*p = fs;
+		*p = fs; //Yuanguo: assume the last fs type is last_fst; p is &(last_fst->next);
 	write_unlock(&file_systems_lock);
 	return res;
 }

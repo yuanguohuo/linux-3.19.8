@@ -1067,6 +1067,9 @@ static int follow_managed(struct path *path, unsigned flags)
 		if (managed & DCACHE_MOUNTED) {
 			struct vfsmount *mounted = lookup_mnt(path);
 			if (mounted) {
+        //Yuanguo: filesystem-1 is mounted on 'path' (param), continue
+        //  to check if there filesystem-2 mounted on filesystem-1, if
+        //  there is filesystem-3 mounted on filesystem-2 ...
 				dput(path->dentry);
 				if (need_mntput)
 					mntput(path->mnt);
@@ -1449,6 +1452,9 @@ unlazy:
 		if (unlazy_walk(nd, dentry))
 			return -ECHILD;
 	} else {
+    //Yuanguo: parent is the dentry of parent-dir;
+    //         nd->last is the component that we're looking for in the parent-dir;
+    //         returned 'dentry' is the dentry of the component;
 		dentry = __d_lookup(parent, &nd->last);
 	}
 
@@ -1568,6 +1574,11 @@ static inline int walk_component(struct nameidata *nd, struct path *path,
 	 */
 	if (unlikely(nd->last_type != LAST_NORM))
 		return handle_dots(nd, nd->last_type);
+
+  //Yuanguo: nd->path is the parent-dir;
+  //         nd->last is the component that we're looking for in the parent-dir;
+  //         returned path  : the path of the component;
+  //         returned inode : the inode of the component;
 	err = lookup_fast(nd, path, &inode);
 	if (unlikely(err)) {
 		if (err < 0)
@@ -1594,8 +1605,12 @@ static inline int walk_component(struct nameidata *nd, struct path *path,
 		BUG_ON(inode != path->dentry->d_inode);
 		return 1;
 	}
+
+  //Yuanguo: nd->path = path;
 	path_to_nameidata(path, nd);
+
 	nd->inode = inode;
+
 	return 0;
 
 out_path_put:
@@ -1815,8 +1830,8 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 			}
 		}
 
-    //Yuanguo: nd->path is the info of parent dir;
-    //         the following 3 fields is the info of what we're looking for in the parent dir;
+    //Yuanguo: nd->path is the parent-dir;
+    //         the following 3 fields are the info of the component we're looking for in the parent-dir;
     //   they are key input of walk_component() function below;
 		nd->last.hash_len = hash_len;
 		nd->last.name = name;
