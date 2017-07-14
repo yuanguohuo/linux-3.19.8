@@ -1164,7 +1164,10 @@ struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 			inode->i_ino = ino;
 			spin_lock(&inode->i_lock);
 			inode->i_state = I_NEW;
+
+      //Yuanguo: add the newly allocated inode into inode_hashtable;
 			hlist_add_head(&inode->i_hash, head);
+
 			spin_unlock(&inode->i_lock);
 			inode_sb_list_add(inode);
 			spin_unlock(&inode_hash_lock);
