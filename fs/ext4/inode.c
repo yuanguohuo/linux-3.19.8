@@ -3652,7 +3652,12 @@ static int __ext4_get_inode_loc(struct inode *inode,
 	if (!ext4_valid_inum(sb, inode->i_ino))
 		return -EIO;
 
+  //Yuanguo: calcuate the block_group number of the inode; e.g. i_ino = 300 and
+  //        each block_group contains 100 inodes, then the block_group number
+  //        will be (300-1)/100 = 2.
+  //        That means inode 300 resides in the 3rd block (starting from 0);
 	iloc->block_group = (inode->i_ino - 1) / EXT4_INODES_PER_GROUP(sb);
+
 	gdp = ext4_get_group_desc(sb, iloc->block_group, NULL);
 	if (!gdp)
 		return -EIO;

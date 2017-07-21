@@ -1421,6 +1421,12 @@ static struct dentry *ext4_lookup(struct inode *dir, struct dentry *dentry, unsi
 			return ERR_PTR(-EIO);
 		}
 	}
+
+  //Yuanguo: make dentry point to inode, making dentry a hard link of inode; 
+  //in detail:
+  //    dentry->d_inode = inode
+  //    link dentry->d_u.d_alias into list inode->i_dentry;
+  // See call path: d_splice_alias --> __d_instantiate
 	return d_splice_alias(inode, dentry);
 }
 

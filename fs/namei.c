@@ -1320,6 +1320,10 @@ static void follow_dotdot(struct nameidata *nd)
  *
  * dir->d_inode->i_mutex must be held
  */
+//Yuanguo: lookup the name in dir,
+//   1. if found return it, and set need_lookup = false;
+//   2. if not found, create a blank dentry object (also do some initializations), return
+//      it, and set need_lookup = true;
 static struct dentry *lookup_dcache(struct qstr *name, struct dentry *dir,
 				    unsigned int flags, bool *need_lookup)
 {
@@ -1371,6 +1375,26 @@ static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
 		return ERR_PTR(-ENOENT);
 	}
 
+  //Yuanguo: if an inode stands for a directory:
+  //             for ext2: i_op = ext2_dir_inode_operations
+  //             for ext3: i_op = ext3_dir_inode_operations
+  //             for ext4: i_op = ext4_dir_inode_operations
+  //             for xfs:  i_op = xfs_dir_inode_operations or xfs_dir_ci_inode_operations
+  //         if an inode stands for a file:
+  //             for ext2: i_op = ext2_file_inode_operations
+  //             for ext3: i_op = ext3_file_inode_operations
+  //             for ext4: i_op = ext4_file_inode_operations
+  //             for xfs:  i_op = xfs_inode_operations 
+  // here, dir is an inode standing for a directory; and lookup should be ext2_lookup, 
+  // ext3_lookup, ext4_lookup,  xfs_vn_lookup/xfs_vn_ci_lookup respectively.
+  //
+  // The lookup also puts the new dentry into dentry_hashtable, take ext4_lookup for example,
+  // the call path is:
+  //     ext4_lookup   -->
+  //     d_splice_alias  -->
+  //     d_rehash  -->
+  //     _d_rehash -->
+  //     __d_rehash
 	old = dir->i_op->lookup(dir, dentry, flags);
 	if (unlikely(old)) {
 		dput(dentry);
@@ -1385,10 +1409,15 @@ static struct dentry *__lookup_hash(struct qstr *name,
 	bool need_lookup;
 	struct dentry *dentry;
 
+  //Yuanguo: lookup the name in parent-dir (base), 
+  //           1. if found return it, and set need_lookup = false;
+  //           2. if not found, create a blank dentry object (also do some initializations), return
+  //              it, and set need_lookup = true;
 	dentry = lookup_dcache(name, base, flags, &need_lookup);
 	if (!need_lookup)
 		return dentry;
 
+  //Yuanguo: for disk based fs, lookup_real should read from disk to find the dentry ... 
 	return lookup_real(base->d_inode, dentry, flags);
 }
 
@@ -1458,6 +1487,7 @@ unlazy:
 		dentry = __d_lookup(parent, &nd->last);
 	}
 
+  //Yuanguo: if not found in dcache, goto need_lookup and return 1 there;
 	if (unlikely(!dentry))
 		goto need_lookup;
 
@@ -1579,11 +1609,13 @@ static inline int walk_component(struct nameidata *nd, struct path *path,
   //         nd->last is the component that we're looking for in the parent-dir;
   //         returned path  : the path of the component;
   //         returned inode : the inode of the component;
+  //         returned err: whether found in dentry-cache. 0: found;  1: not found;
 	err = lookup_fast(nd, path, &inode);
 	if (unlikely(err)) {
 		if (err < 0)
 			goto out_err;
 
+    //Yuanguo: not found in dentry-cache. for disk based fs, find from disk ...
 		err = lookup_slow(nd, path);
 		if (err < 0)
 			goto out_err;
@@ -1781,6 +1813,12 @@ static inline u64 hash_name(const char *name)
  * Returns 0 and nd will have valid dentry and mnt on success.
  * Returns error and drops reference to input namei data on failure.
  */
+//Yuanguo:
+//    1. nd->path is start point:
+//           nd->path.dentry = starting dentry in current fs
+//           nd->path.mnt = vfsmount of current fs
+//    2. nd->inode = nd->path.dentry->d_inode;
+//walk from nd->path along name...
 static int link_path_walk(const char *name, struct nameidata *nd)
 {
 	struct path next;
@@ -1800,8 +1838,8 @@ static int link_path_walk(const char *name, struct nameidata *nd)
  		if (err)
 			break;
 
-    //Yuanguo: function hash_name() gets the next component from name, and calculate the component's 
-    //         hash and len. And return (len<<32) | hash.
+    //Yuanguo: hash_name() returns the len and hash, combined into a u64 by (len<<32)|hash, of the 
+    //         next component of name;
 		hash_len = hash_name(name);
 
 		type = LAST_NORM;
@@ -1814,7 +1852,12 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 				break;
 			case 1:
 				type = LAST_DOT;
+
+      //Yuanguo: case 2: the next component is ".."
+      //         case 1: the next component is "."
+      //         others: the next component is .xx, the normal cases.
 		}
+
 		if (likely(type == LAST_NORM)) {
 			struct dentry *parent = nd->path.dentry;
 			nd->flags &= ~LOOKUP_JUMPED;
@@ -1830,9 +1873,11 @@ static int link_path_walk(const char *name, struct nameidata *nd)
 			}
 		}
 
-    //Yuanguo: nd->path is the parent-dir;
-    //         the following 3 fields are the info of the component we're looking for in the parent-dir;
-    //   they are key input of walk_component() function below;
+    //Yuanguo: 
+    //   1. nd->path is the parent-dir (it's the starting point initially, and it gets updated along the dir path,
+    //         in call path: walk_component --> path_to_nameidata);
+    //   2. the following 3 fields are the info of the component we're looking for in the parent-dir;
+    //they are key inputs of walk_component() function below;
 		nd->last.hash_len = hash_len;
 		nd->last.name = name;
 		nd->last_type = type;
@@ -1841,7 +1886,7 @@ static int link_path_walk(const char *name, struct nameidata *nd)
     //         through it. That's to say, in this function, we walk through all 
     //         the components except the last one of a pathname. And the last
     //         component info is saved in nd->last and nd->last_type for later 
-    //         walking.
+    //         walking if needed.
 		name += hashlen_len(hash_len);
 		if (!*name)
 			return 0;
@@ -1882,7 +1927,9 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 	nd->flags = flags | LOOKUP_JUMPED | LOOKUP_PARENT;
 	nd->depth = 0;
 	nd->base = NULL;
+
 	if (flags & LOOKUP_ROOT) {
+    //Yuanguo: case-1: root is given (by nd->root), and start walk from the given root;
 		struct dentry *root = nd->root.dentry;
 		struct inode *inode = root->d_inode;
 		if (*name) {
@@ -1907,7 +1954,10 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 	nd->root.mnt = NULL;
 
 	nd->m_seq = read_seqbegin(&mount_lock);
+
 	if (*name=='/') {
+    //Yuanguo: case-2: root is not given by nd->root and the walk starts from "/", so
+    //  we need to get root of current fs ourselves, and start walk from the root;
 		if (flags & LOOKUP_RCU) {
 			rcu_read_lock();
 			nd->seq = set_root_rcu(nd); //Yuanguo: init nd->root by current fs;
@@ -1917,6 +1967,8 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 		}
 		nd->path = nd->root; //Yuanguo: nd->path is initialized by nd->root; so nd->path is root of current fs;
 	} else if (dfd == AT_FDCWD) {
+    //Yuanguo: case-3: the walk doesn't start from root but start from cwd (current working directory),  so 
+    //  we need to get cwd of current fs ourselves, and start walk from the cwd;
 		if (flags & LOOKUP_RCU) {
 			struct fs_struct *fs = current->fs;
 			unsigned seq;
@@ -1932,6 +1984,7 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 			get_fs_pwd(current->fs, &nd->path); //Yuanguo: init nd->path by pwd;
 		}
 	} else {
+    //Yuanguo: case-4: ......
 		/* Caller must check execute permissions on the starting path component */
 		struct fd f = fdget_raw(dfd);
 		struct dentry *dentry;
@@ -1972,10 +2025,12 @@ static int path_init(int dfd, const char *name, unsigned int flags,
 done:
 	current->total_link_count = 0;
 
-  //Yuanguo: now, nd->path is the "root" of current fs:
-  //            nd->path.dentry = root dentry of current fs
-  //            nd->path.mnt = vfsmount of current fs
-  //         so, walk from nd->path ...
+  //Yuanguo: In all cases (case-1 to case-4), at this moment, 
+  //         1. nd->path is start point:
+  //                nd->path.dentry = starting dentry in current fs
+  //                nd->path.mnt = vfsmount of current fs
+  //         2. nd->inode = nd->path.dentry->d_inode;
+  // so, walk from nd->path ...
 	return link_path_walk(name, nd);
 }
 
