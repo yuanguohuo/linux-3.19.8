@@ -1418,6 +1418,7 @@ static struct dentry *__lookup_hash(struct qstr *name,
 		return dentry;
 
   //Yuanguo: for disk based fs, lookup_real should read from disk to find the dentry ... 
+  //         and put the new dentry into dentry_hashtable.
 	return lookup_real(base->d_inode, dentry, flags);
 }
 
@@ -1529,12 +1530,18 @@ static int lookup_slow(struct nameidata *nd, struct path *path)
 	BUG_ON(nd->inode != parent->d_inode);
 
 	mutex_lock(&parent->d_inode->i_mutex);
+
+  //Yuanguo: find from dentry_hashtable, if not found, find from disk ...
 	dentry = __lookup_hash(&nd->last, parent, nd->flags);
+
 	mutex_unlock(&parent->d_inode->i_mutex);
+
 	if (IS_ERR(dentry))
 		return PTR_ERR(dentry);
+
 	path->mnt = nd->path.mnt;
 	path->dentry = dentry;
+
 	err = follow_managed(path, nd->flags);
 	if (unlikely(err < 0)) {
 		path_put_conditional(path, nd);

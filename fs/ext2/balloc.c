@@ -33,6 +33,32 @@
  * when a file system is mounted (see ext2_fill_super).
  */
 
+//Yuanguo: a block group in ext2:
+//
+//block#    0   1   2  ......
+//        +---++---+---+---+---+---++---+---++---+---+---+---+---++---+---+---+---+---+
+//        |   ||   |   |...|   |   ||   |   ||   |   |...|   |   ||   |   |   |...|   |
+//        +---++---+---+---+---+---++---+---++---+---+---+---+---++---+---+---+---+---+
+//          ^  |<----------------->|  ^   ^  |<----------------->||<----------------->|
+//          |            ^            |   |            ^                    ^
+//          |            |            |  inode         |                    |
+//          |            |            | bitmap         |                    |
+//          |            |            |            inode table         data blocks
+//          |            |        data block
+//          |          group       bitmap
+//          |     descriptor-blocks
+//          |
+//     super block
+//
+//
+//Yuanguo:
+//  Although both the superblock and the group descriptors are duplicated in each block group, only 
+//  the superblock and the group descriptors included in block group 0 are used by the kernel, while 
+//  the remaining superblocks and group descriptors are left unchanged. In fact, the kernel doesn’t 
+//  even look at them. 
+//  When the e2fsck program executes a consistency check on the filesystem status, it refers to the 
+//  superblock and the group descriptors stored in block group 0, and then copies them into all other 
+//  block groups. 
 
 #define in_range(b, first, len)	((b) >= (first) && (b) <= (first) + (len) - 1)
 
@@ -54,8 +80,16 @@ struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
 		return NULL;
 	}
 
-	group_desc = block_group >> EXT2_DESC_PER_BLOCK_BITS(sb);
-	offset = block_group & (EXT2_DESC_PER_BLOCK(sb) - 1);
+  //Yuanguo: EXT2_DESC_PER_BLOCK(sb) is "Number of group descriptors per block"
+  //         EXT2_DESC_PER_BLOCK_BITS(sb) is "the number of bits in EXT2_DESC_PER_BLOCK(sb)"
+  //         e.g. 
+  //              EXT2_DESC_PER_BLOCK(sb) = 32
+  //              EXT2_DESC_PER_BLOCK_BITS(sb) = 5
+  //         So, 'group_desc' = N: where the N-th descriptor-block contains the block-group numbered 'block_group';
+  //             'offset' is the offset in the N-th descriptor-block, and it points to the block-group numbered 'block_group';
+	group_desc = block_group >> EXT2_DESC_PER_BLOCK_BITS(sb);  //Yuanguo: group_desc = block_group / 32
+	offset = block_group & (EXT2_DESC_PER_BLOCK(sb) - 1);      //Yuanguo: offset = block_group % 32
+
 	if (!sbi->s_group_desc[group_desc]) {
 		ext2_error (sb, "ext2_get_group_desc",
 			    "Group descriptor not loaded - "
@@ -64,6 +98,16 @@ struct ext2_group_desc * ext2_get_group_desc(struct super_block * sb,
 		return NULL;
 	}
 
+  //Yuanguo:
+  //    sbi->s_group_desc is initialized when mounting. see ext2_fill_super.
+  //
+  //                                  +---------+
+  //                                  |         |                             +-------------------------------------+
+  //                                  +---------+     +--------------+        |     A group descriptor block        |
+  //                                  |         |     |  ......      |        |  (array of struct ext2_group_desc)  |
+  //                                  +---------+     |   b_data     |------> +-------------------------------------+
+  //                                  | pointer |---> +--------------+
+  //    sbi->s_group_desc  ------>    +---------+     struct buffer_head
 	desc = (struct ext2_group_desc *) sbi->s_group_desc[group_desc]->b_data;
 	if (bh)
 		*bh = sbi->s_group_desc[group_desc];

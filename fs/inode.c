@@ -232,6 +232,16 @@ static struct inode *alloc_inode(struct super_block *sb)
 {
 	struct inode *inode;
 
+  //Yuanguo: 
+  //   for ext2, sb->s_op is ext2_sops, and alloc_inode is ext2_alloc_inode;
+  //             an instance (ei) of 'struct ext2_inode_info' is allocated and
+  //             &ei->vfs_inode is returned;
+  //   for ext3, sb->s_op is ext3_sops, and alloc_inode is ext3_alloc_inode;
+  //             an instance (ei) of 'struct ext3_inode_info' is allocated and
+  //             &ei->vfs_inode is returned;
+  //   for ext4, sb->s_op is ext4_sops, and alloc_inode is ext4_alloc_inode;
+  //             an instance (ei) of 'struct ext4_inode_info' is allocated and
+  //             &ei->vfs_inode is returned;
 	if (sb->s_op->alloc_inode)
   {
 		inode = sb->s_op->alloc_inode(sb);

@@ -1318,6 +1318,9 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] ino=%lu\n", __func__, sb, sb->s_id, ino);
 
+  //Yuanguo: Search for the inode specified by ino in inode_hashtable and if present
+   //        return it; if not present, allocate a new inode, add it into inode_hashtable,
+   //        and return it;
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);

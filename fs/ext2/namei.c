@@ -63,9 +63,11 @@ static struct dentry *ext2_lookup(struct inode * dir, struct dentry *dentry, uns
 	if (dentry->d_name.len > EXT2_NAME_LEN)
 		return ERR_PTR(-ENAMETOOLONG);
 
+  //Yuanguo: find out the inode number; 
 	ino = ext2_inode_by_name(dir, &dentry->d_name);
 	inode = NULL;
 	if (ino) {
+    //Yuanguo: get the inode;
 		inode = ext2_iget(dir->i_sb, ino);
 		if (inode == ERR_PTR(-ESTALE)) {
 			ext2_error(dir->i_sb, __func__,
