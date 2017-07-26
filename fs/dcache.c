@@ -1605,7 +1605,7 @@ static void __d_instantiate(struct dentry *dentry, struct inode *inode)
 	spin_lock(&dentry->d_lock);
 	__d_set_type(dentry, add_flags);
 	if (inode)
-		hlist_add_head(&dentry->d_u.d_alias, &inode->i_dentry);
+		hlist_add_head(&dentry->d_u.d_alias, &inode->i_dentry); //Yuanguo: make 'dentry' one of the hard links of 'inode';
 	dentry->d_inode = inode;
 	dentry_rcuwalk_barrier(dentry);
 	spin_unlock(&dentry->d_lock);
@@ -1748,9 +1748,11 @@ struct dentry *d_make_root(struct inode *root_inode)
 	if (root_inode) {
 		static const struct qstr name = QSTR_INIT("/", 1);
 
+    //Yuanguo: allocate an instance of 'struct dentry', set its d_name to name ("/" here)
+    //         and do some basic initializations;
 		res = __d_alloc(root_inode->i_sb, &name);
 		if (res)
-			d_instantiate(res, root_inode);
+			d_instantiate(res, root_inode); //Yuanguo: fill inode information into the dentry 'res';
 		else
 			iput(root_inode);
 	}

@@ -614,7 +614,7 @@ struct inode {
 	struct list_head	i_lru;		/* inode LRU list */
 	struct list_head	i_sb_list;
 	union {
-		struct hlist_head	i_dentry;
+		struct hlist_head	i_dentry; //Yuanguo: list of hard links of this inode (list of dentries that reference this inode)
 		struct rcu_head		i_rcu;
 	};
 	u64			i_version;

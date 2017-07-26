@@ -72,7 +72,7 @@ struct ext2_sb_info {
 	unsigned long s_blocks_per_group;/* Number of blocks in a group */
 	unsigned long s_inodes_per_group;/* Number of inodes in a group */
 	unsigned long s_itb_per_group;	/* Number of inode table blocks per group */
-	unsigned long s_gdb_count;	/* Number of group descriptor blocks */
+	unsigned long s_gdb_count;	/* Number of group descriptor blocks */ //Yuanguo: how many blocks used to store descriptors;
 	unsigned long s_desc_per_block;	/* Number of group descriptors per block */
 	unsigned long s_groups_count;	/* Number of groups in the fs */
 	unsigned long s_overhead_last;  /* Last calculated overhead */

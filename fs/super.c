@@ -474,7 +474,9 @@ retry:
 			return ERR_PTR(-ENOMEM);
 		goto retry;
 	}
-		
+
+  //Yuanguo: data is the pointer of block device for call path mount_bdev-->sget,
+  //         the set function here is set_bdev_super(), which sets s->s_bdev = data;
 	err = set(s, data);
 	if (err) {
 		spin_unlock(&sb_lock);

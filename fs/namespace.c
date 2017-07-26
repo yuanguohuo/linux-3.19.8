@@ -939,6 +939,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (!type)
 		return ERR_PTR(-ENODEV);
 
+  //Yuanguo: not alloc 'struct vfsmount', but alloc 'struct mount';
 	mnt = alloc_vfsmnt(name);
 	if (!mnt)
 		return ERR_PTR(-ENOMEM);
@@ -946,7 +947,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	if (flags & MS_KERNMOUNT)
 		mnt->mnt.mnt_flags = MNT_INTERNAL;
 
-  //Yuanguo: the returned 'root' is the root dentry of the mounted fs; 
+  //Yuanguo: the returned 'root' is the root dentry of the mounted fs;
 	root = mount_fs(type, flags, name, data);
 	if (IS_ERR(root)) {
 		mnt_free_id(mnt);

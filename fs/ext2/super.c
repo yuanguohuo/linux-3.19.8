@@ -765,7 +765,15 @@ static unsigned long descriptor_loc(struct super_block *sb,
 
 	if (!EXT2_HAS_INCOMPAT_FEATURE(sb, EXT2_FEATURE_INCOMPAT_META_BG) ||
 	    nr < first_meta_bg)
+  {
+    //Yuanguo: Descriptors blocks follow the superblock (suppose whose block number is logic_sb_block=1), then 
+    //    the 1st Descriptor block (nr=0) is 1+0+1 = 2
+    //    the 2nd Descriptor block (nr=1) is 1+1+1 = 3
+    //    ...
 		return (logic_sb_block + nr + 1);
+  }
+
+
 	bg = sbi->s_desc_per_block * nr;
 	if (ext2_bg_has_super(sb, bg))
 		has_super = 1;
@@ -1032,9 +1040,17 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (EXT2_BLOCKS_PER_GROUP(sb) == 0)
 		goto cantfind_ext2;
+
  	sbi->s_groups_count = ((le32_to_cpu(es->s_blocks_count) -
  				le32_to_cpu(es->s_first_data_block) - 1)
  					/ EXT2_BLOCKS_PER_GROUP(sb)) + 1;
+
+  //Yuanguo: db_count (Discriptor Block Count) is the number of blocks that are used to store Descriptors;
+  //   A Descriptor describes a block group; Suppose that 
+  //           s_groups_count = 10000;           //there're 10000 block groups; thus there're 10000 Descriptors;
+  //           EXT2_DESC_PER_BLOCK(sb) = 128;    //each block contains 128 Descriptors;
+  //   Then, how many blocks are there to store Descriptors?
+  //           10000/128 + 1 <=> (10000 + 128 -1)/128;
 	db_count = (sbi->s_groups_count + EXT2_DESC_PER_BLOCK(sb) - 1) /
 		   EXT2_DESC_PER_BLOCK(sb);
 	sbi->s_group_desc = kmalloc (db_count * sizeof (struct buffer_head *), GFP_KERNEL);
@@ -1048,9 +1064,27 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 		ext2_msg(sb, KERN_ERR, "error: not enough memory");
 		goto failed_mount_group_desc;
 	}
+
+  //Yuanguo: there are db_count blocks storing Descriptors. We need to load these blocks into memory, each block is 
+  //         pointed by an element of sbi->s_group_desc;
+  //
+  //                                  +---------+
+  //                                  |         |                             +-------------------------------------+
+  //                                  +---------+     +--------------+        |     A group descriptor block        |
+  //                                  |         |     |  ......      |        |  (array of struct ext2_group_desc)  |
+  //                                  +---------+     |   b_data     |------> +-------------------------------------+
+  //                                  | pointer |---> +--------------+
+  //    sbi->s_group_desc  ------>    +---------+     struct buffer_head
 	for (i = 0; i < db_count; i++) {
+    //Yuanguo: for example:
+    //    i=0, the 1st Discriptor Block, its actual block number is 2;
+    //    i=1, the 2nd Discriptor Block, its actual block number is 3;
+    //    ...
+    //    descriptor_loc() is used to do this conversion;
 		block = descriptor_loc(sb, logic_sb_block, i);
+
 		sbi->s_group_desc[i] = sb_bread(sb, block);
+
 		if (!sbi->s_group_desc[i]) {
 			for (j = 0; j < i; j++)
 				brelse (sbi->s_group_desc[j]);
@@ -1109,6 +1143,7 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 	sb->s_quota_types = QTYPE_MASK_USR | QTYPE_MASK_GRP;
 #endif
 
+  //Yuanguo: get root inode by root-inode-number (EXT2_ROOT_INO, which is 2)
 	root = ext2_iget(sb, EXT2_ROOT_INO);
 	if (IS_ERR(root)) {
 		ret = PTR_ERR(root);
@@ -1120,17 +1155,21 @@ static int ext2_fill_super(struct super_block *sb, void *data, int silent)
 		goto failed_mount3;
 	}
 
+  //Yuanguo: create the root dentry, based on the root inode;
 	sb->s_root = d_make_root(root);
 	if (!sb->s_root) {
 		ext2_msg(sb, KERN_ERR, "error: get root inode failed");
 		ret = -ENOMEM;
 		goto failed_mount3;
 	}
+
 	if (EXT2_HAS_COMPAT_FEATURE(sb, EXT3_FEATURE_COMPAT_HAS_JOURNAL))
 		ext2_msg(sb, KERN_WARNING,
 			"warning: mounting ext3 filesystem as ext2");
+
 	if (ext2_setup_super (sb, es, sb->s_flags & MS_RDONLY))
 		sb->s_flags |= MS_RDONLY;
+
 	ext2_write_super(sb);
 	return 0;
 
