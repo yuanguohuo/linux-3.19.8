@@ -242,6 +242,12 @@ static struct inode *alloc_inode(struct super_block *sb)
   //   for ext4, sb->s_op is ext4_sops, and alloc_inode is ext4_alloc_inode;
   //             an instance (ei) of 'struct ext4_inode_info' is allocated and
   //             &ei->vfs_inode is returned;
+  //   for nfs,  sb->s_op is nfs_sops, and alloc_inode is nfs_alloc_inode; an
+  //             instance (nfsi) of 'struct nfs_inode' is allocated and &nfsi->
+  //             vfs_inode is returned;
+  //   for bdev fs (whose super block is blockdev_superblock, see fs/block_dev.c), sb->s_op is bdev_sops, and 
+  //             alloc_inode is bdev_alloc_inode; and instance (ei) of 'struct bdev_inode' is allocated and 
+  //             &ei->vfs_inode is returned;
 	if (sb->s_op->alloc_inode)
   {
 		inode = sb->s_op->alloc_inode(sb);
@@ -1049,8 +1055,16 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		int (*test)(struct inode *, void *),
 		int (*set)(struct inode *, void *), void *data)
 {
-  //Yuanguo: blockdev_superblock, nfs, fuse and etc will call this function. 
-  //  for ext2/3/4, iget_locked() should be called instead.
+  //Yuanguo: 
+  //  For bdev fs (whose super block is blockdev_superblock, see fs/block_dev.c), nfs, fuse and etc, this iget5_locked()
+  //           function is used to get the inode identified by 'data' (the last param);
+  //  For ext2/3/4, iget_locked(struct super_block *sb, unsigned long ino) is used to get the inode identified by inode
+  //           number (the 2nd param 'ino').
+  //  The differences between iget5_locked() and iget_locked() is the way to uniquely identify an inode:
+  //           the latter: inode number (the 2nd param 'ino') is sufficient for unique identification of an inode; 
+  //                       disk based fs like ext2/3/4 have such inode number;
+  //           the former: the inode number is not sufficient for unique identification, and thus 'data' and a 'test' 
+  //                       function are provided to test if two inodes equal to each other or not;
 	struct hlist_head *head = inode_hashtable + hash(sb, hashval);
 	struct inode *inode;
 
@@ -1066,12 +1080,14 @@ struct inode *iget5_locked(struct super_block *sb, unsigned long hashval,
 		return inode;
 	}
 
-  //Yuanguo: for blockdev_superblock, the allocated space should be enough for struct bdev_inode,
-  //         for nfs, the allocated space should be enough for struct nfs_inode,
-  //         because 'inode' will be forced later into 'struct bdev_inode' or 'struct nfs_inode' 
-  //         respectively:
-  //             see function BDEV_I called in bdev_test(the param test) and bdev_set(the param set) for blockdev_superblock;
+  //Yuanguo: for bdev fs (whose super block is blockdev_superblock, see fs/block_dev.c), the allocated space should be 
+  //         enough for struct bdev_inode; for nfs, the allocated space should be enough for struct nfs_inode, because 
+  //         'inode' will be forced later into 'struct bdev_inode' or 'struct nfs_inode' respectively:
+  //             see function BDEV_I called in bdev_test(the param test) and bdev_set(the param set) for bdev;
   //             see function NFS_I called in nfs_find_actor(the param test) and nfs_init_locked(the param set) for nfs;
+  //
+  //         Yes! for bdev, the alloc_inode below calls bdev_alloc_inode() in fs/block_dev.c;
+  //              for nfs, the alloc_inode below calls nfs_alloc_inode() in fs/nfs/inode.c;
 	inode = alloc_inode(sb);
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=%p\n", __func__, inode);
@@ -1149,7 +1165,8 @@ EXPORT_SYMBOL(iget5_locked);
 struct inode *iget_locked(struct super_block *sb, unsigned long ino)
 {
   //Yuanguo: for ext2/3/4, this function should be called.
-  //         for blockdev_superblock, nfs, iget5_locked() should be called instead.
+  //         for bdev fs (whose super block is blockdev_superblock, see fs/block_dev.c), nfs, iget5_locked() should be
+  //         called instead.
 	struct hlist_head *head = inode_hashtable + hash(sb, ino);
 	struct inode *inode;
 

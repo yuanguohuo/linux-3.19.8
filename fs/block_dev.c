@@ -567,7 +567,7 @@ struct block_device *bdget(dev_t dev)
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): dev=%u\n", __func__, dev);
 
-  //Yuanguo: the inode returned here stands for a file in 'blockdev_superblock';
+  //Yuanguo: the inode returned here stands for a file in bdev fs (whose super block is blockdev_superblock)
   //         notice that the inode param of function bd_acquire stands for the device file in devtmpfs; e.g.
   //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
 	inode = iget5_locked(blockdev_superblock, hash(dev),
@@ -600,7 +600,7 @@ struct block_device *bdget(dev_t dev)
 		unlock_new_inode(inode);
 	}
 
-  //Yuanguo: the inode stands for a file in 'blockdev_superblock' (whose s_id="bdev"); e.g.
+  //Yuanguo: the inode stands for a file in bdev fs (whose super block is blockdev_superblock); e.g.
   //         inode=[ffff880034750430 24576 bdev 0 8388640 ffff880034750340]
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
@@ -647,7 +647,7 @@ static struct block_device *bd_acquire(struct inode *inode)
   //Yuanguo: the inode here stands for the device file in devtmpfs; e.g.
   //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
   //         in function bdget, we will get another 'inode',  that inode
-  //         stands for a file in 'blockdev_superblock';
+  //         stands for a file in bdev fs (whose super block is blockdev_superblock);
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
@@ -686,7 +686,7 @@ static struct block_device *bd_acquire(struct inode *inode)
       //                          |     struct inode       |
       //                          +------------------------+
       //                          |   the inode in         |
-      //                          |  blockdev_superblock   |
+      //                          |     bdev fs            |
       //                          |                        |
       //                          +========================+
 			inode->i_bdev = bdev;
@@ -1427,7 +1427,7 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
   //                |     struct inode       |
   //                +------------------------+
   //                |   the inode in         |
-  //                |  blockdev_superblock   |
+  //                |      bdev fs           |
   //                |                        |
   //                +========================+
 
@@ -1757,7 +1757,7 @@ struct block_device *lookup_bdev(const char *pathname)
   //Yuanguo: the inode here stands for the device file in devtmpfs; e.g.
   //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
   //         in function bd_acquire->bdget, we will get another 'inode',  that inode
-  //         stands for a file in 'blockdev_superblock';
+  //         stands for a file in bdev fs (whose super block is blockdev_superblock);
   printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
