@@ -1038,6 +1038,7 @@ struct dentry *mount_bdev(struct file_system_type *fs_type,
 		bdev->bd_super = s;
 	}
 
+  //Yuanguo: return the root dentry of the mounted fs; 
 	return dget(s->s_root);
 
 error_s:
@@ -1078,6 +1079,7 @@ struct dentry *mount_nodev(struct file_system_type *fs_type,
 
   //Yuanguo: for ramfs:  ramfs_fill_super
   //         for rootfs: shmem_fill_super or ramfs_fill_super, depends on CONFIG_TMPFS configured or not
+  //         for fuse:   fuse_fill_super
 	error = fill_super(s, data, flags & MS_SILENT ? 1 : 0);
 	if (error) {
 		deactivate_locked_super(s);
@@ -1157,6 +1159,7 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
   //for ext4  ext4_mount()
   //for ramfs:  ramfs_mount()
   //for rootfs: rootfs_mount()
+  //for fuse: fuse_mount()
  
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {

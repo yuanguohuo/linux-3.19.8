@@ -1235,26 +1235,45 @@ static struct ext2_inode *ext2_get_inode(struct super_block *sb, ino_t ino,
 	unsigned long offset;
 	struct ext2_group_desc * gdp;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb=[%p %s] ino=%lu\n", __func__, sb, sb->s_id, ino);
+
 	*p = NULL;
 	if ((ino != EXT2_ROOT_INO && ino < EXT2_FIRST_INO(sb)) ||
 	    ino > le32_to_cpu(EXT2_SB(sb)->s_es->s_inodes_count))
 		goto Einval;
 
+  //Yuanguo: 'block_group' is the block group that the target inode resides in. Suppose  
+  //       ino = 50                          //target node is 50
+  //       EXT2_INODES_PER_GROUP(sb) = 100   //every block group has 100 inodes;
+  // then it resides in the 1st (number 0) block group;
+  // (ino - 1): because the first valid inode is #2;
 	block_group = (ino - 1) / EXT2_INODES_PER_GROUP(sb);
+
+  //Yuanguo: get the Descriptor that describes the block group 'block_group';
 	gdp = ext2_get_group_desc(sb, block_group, NULL);
 	if (!gdp)
 		goto Egdp;
+
 	/*
 	 * Figure out the offset within the block group inode table
 	 */
+  //Yuanguo: 'block_group' is the block group that the target inode resides in; 
+  //         'offset' is the offset of the target inode in that block group;
 	offset = ((ino - 1) % EXT2_INODES_PER_GROUP(sb)) * EXT2_INODE_SIZE(sb);
+
+  //Yuanguo: get the block that contains the target inode; 
 	block = le32_to_cpu(gdp->bg_inode_table) +
 		(offset >> EXT2_BLOCK_SIZE_BITS(sb));
+
+  //Yuanguo: read the block?
 	if (!(bh = sb_bread(sb, block)))
 		goto Eio;
 
 	*p = bh;
+
+  //Yuanguo: 'offset' becomes the offset of the target inode in the block; it was the offset in the block group before;
 	offset &= (EXT2_BLOCK_SIZE(sb) - 1);
+
 	return (struct ext2_inode *) (bh->b_data + offset);
 
 Einval:
@@ -1324,15 +1343,21 @@ struct inode *ext2_iget (struct super_block *sb, unsigned long ino)
 	inode = iget_locked(sb, ino);
 	if (!inode)
 		return ERR_PTR(-ENOMEM);
+
+  //Yuanguo: in iget_locked() above, the inode is found in inode_hashtable, so it is not new and thus it is already
+  //initlialized, so return it directly;
 	if (!(inode->i_state & I_NEW))
 		return inode;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): inode=[%p %u %s %lu %u %p]\n", 
+  //Yuanguo: in iget_locked() above, the inode is NOT found in inode_hashtable, and a new inode was allocated, so 
+  //initialize it ...
+  printk(KERN_DEBUG "YuanguoDbg func %s(): initialize inode=[%p %u %s %lu %u %p]\n", 
       __func__, inode, inode->i_mode, inode->i_sb->s_id, inode->i_ino, inode->i_rdev, inode->i_bdev);
 
 	ei = EXT2_I(inode);
 	ei->i_block_alloc_info = NULL;
 
+  //Yuanguo: read the inode from disk
 	raw_inode = ext2_get_inode(inode->i_sb, ino, &bh);
 	if (IS_ERR(raw_inode)) {
 		ret = PTR_ERR(raw_inode);
