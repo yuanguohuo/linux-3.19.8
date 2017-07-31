@@ -987,6 +987,8 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	int err;
 	int is_bdev = sb->s_bdev != NULL;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s data=%s silent=%d is_bdev=%d\n", __func__, sb->s_id, (data!=NULL?((char*)data):"NULL"), silent, is_bdev);
+
 	err = -EINVAL;
 	if (sb->s_flags & MS_MANDLOCK)
 		goto err;
@@ -995,6 +997,9 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 
 	if (!parse_fuse_opt(data, &d, is_bdev))
 		goto err;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): d.fd_present=%u d.fd=%d d.rootmode_present=%u d.rootmode=%u d.max_read=%u d.flags=%u d.blksize=%u\n", __func__, 
+      d.fd_present, d.fd, d.rootmode_present, d.rootmode, d.max_read, d.flags, d.blksize);
 
 	if (is_bdev) {
 #ifdef CONFIG_BLOCK
@@ -1006,6 +1011,9 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_blocksize = PAGE_CACHE_SIZE;
 		sb->s_blocksize_bits = PAGE_CACHE_SHIFT;
 	}
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): PAGE_CACHE_SIZE=%lu sb->s_blocksize=%lu\n", __func__, (unsigned long)PAGE_CACHE_SIZE, sb->s_blocksize);
+
 	sb->s_magic = FUSE_SUPER_MAGIC;
 	sb->s_op = &fuse_super_operations;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
