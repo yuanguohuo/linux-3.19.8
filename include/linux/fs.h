@@ -806,7 +806,7 @@ struct file {
 		struct llist_node	fu_llist;
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
-	struct path		f_path;
+	struct path		f_path;   //Yuanguo:  include/linux/path.h 
 	struct inode		*f_inode;	/* cached value */
 	const struct file_operations	*f_op;
 

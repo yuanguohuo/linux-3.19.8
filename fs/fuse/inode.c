@@ -981,13 +981,13 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	struct fuse_conn *fc;
 	struct inode *root;
 	struct fuse_mount_data d;
-	struct file *file;
+	struct file *file;  //Yuanguo: include/linux/fs.h
 	struct dentry *root_dentry;
 	struct fuse_req *init_req;
 	int err;
 	int is_bdev = sb->s_bdev != NULL;
 
-  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s data=%s silent=%d is_bdev=%d\n", __func__, sb->s_id, (data!=NULL?((char*)data):"NULL"), silent, is_bdev);
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s data=\"%s\" silent=%d is_bdev=%d\n", __func__, sb->s_id, (data!=NULL?((char*)data):"NULL"), silent, is_bdev);
 
 	err = -EINVAL;
 	if (sb->s_flags & MS_MANDLOCK)
@@ -1028,6 +1028,8 @@ static int fuse_fill_super(struct super_block *sb, void *data, int silent)
 	if ((file->f_op != &fuse_dev_operations) ||
 	    (file->f_cred->user_ns != &init_user_ns))
 		goto err_fput;
+
+  printk(KERN_DEBUG "YuanguoDbg func %s(): file=...%s/%s\n", __func__, file->f_path.dentry->d_parent->d_name.name, file->f_path.dentry->d_name.name);
 
 	fc = kmalloc(sizeof(*fc), GFP_KERNEL);
 	err = -ENOMEM;

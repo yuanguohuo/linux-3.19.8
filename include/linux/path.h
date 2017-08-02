@@ -6,7 +6,7 @@ struct vfsmount;
 
 struct path {
 	struct vfsmount *mnt;
-	struct dentry *dentry;
+	struct dentry *dentry; //Yuanguo: include/linux/dcache.h
 };
 
 extern void path_get(const struct path *);
