@@ -130,6 +130,7 @@ void final_putname(struct filename *name)
 
 #define EMBEDDED_NAME_MAX	(PATH_MAX - sizeof(struct filename))
 
+//Yuanguo:  for 'struct filename', see include/linux/fs.h
 struct filename *
 getname_flags(const char __user *filename, int flags, int *empty)
 {
@@ -140,8 +141,9 @@ getname_flags(const char __user *filename, int flags, int *empty)
 
 	result = audit_reusename(filename);
 	if (result)
-		return result;
+		return result; //Yuanguo: already exists in audit_context;
 
+  //Yuanguo: allocate a new struct filename
 	result = __getname();
 	if (unlikely(!result))
 		return ERR_PTR(-ENOMEM);
@@ -150,7 +152,8 @@ getname_flags(const char __user *filename, int flags, int *empty)
 	 * First, try to embed the struct filename inside the names_cache
 	 * allocation
 	 */
-	kname = (char *)result + sizeof(*result);
+  //Yuanguo: First, try to store the string filename right after the 'result' struct;
+	kname = (char *)result + sizeof(*result);  //Yuanguo: kname points to space right after the 'result' struct;
 	result->name = kname;
 	result->separate = false;
 	max = EMBEDDED_NAME_MAX;
@@ -169,9 +172,14 @@ recopy:
 	 * userland.
 	 */
 	if (len == EMBEDDED_NAME_MAX && max == EMBEDDED_NAME_MAX) {
-		kname = (char *)result;
+    //Yuanguo: the string filename is too long to be stored right after 'result' struct;
+    //         so, 
+    //            1. result = new allocated struct;
+    //            2. the original 'result' struct and the space right after it are used to store the filename string;
 
-		result = kzalloc(sizeof(*result), GFP_KERNEL);
+		kname = (char *)result;  //Yuanguo: the original 'result' struct and the space right after it;
+
+		result = kzalloc(sizeof(*result), GFP_KERNEL); //Yuanguo: new allocated struct
 		if (!result) {
 			err = ERR_PTR(-ENOMEM);
 			result = (struct filename *)kname;
@@ -184,11 +192,11 @@ recopy:
 	}
 
 	/* The empty path is special. */
-	if (unlikely(!len)) {
+	if (unlikely(!len)) {  //Yuanguo: filename is an empty string;
 		if (empty)
 			*empty = 1;
 		err = ERR_PTR(-ENOENT);
-		if (!(flags & LOOKUP_EMPTY))
+		if (!(flags & LOOKUP_EMPTY)) //Yuanguo: if no LOOKUP_EMPTY, must be wrong, return error;
 			goto error;
 	}
 

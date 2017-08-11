@@ -5,8 +5,8 @@ struct dentry;
 struct vfsmount;
 
 struct path {
-	struct vfsmount *mnt;
-	struct dentry *dentry; //Yuanguo: include/linux/dcache.h
+	struct vfsmount *mnt;  //Yuanguo: struct vfsmount is "a mounted filesystem"
+	struct dentry *dentry; //Yuanguo: the dentry the path refers to;  include/linux/dcache.h
 };
 
 extern void path_get(const struct path *);
