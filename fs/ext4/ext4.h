@@ -648,7 +648,15 @@ struct ext4_inode {
 			__u32  m_i_reserved1;
 		} masix1;
 	} osd1;				/* OS dependent 1 */
+
+        //Yuanguo: if file's data is very tiny, store the data inline:
+        //   <= 60B                     : store the data in i_block;  extend-attr "system.data" exists but value is
+        //                                0-length;
+        //   > 60 and <= 60 + ibody EA  : store the first 60B in i_block and the rest in extend-attr as key
+        //                                "system.data"(ibody EA means "extend-attr space")
+        //   > 60 + ibody EA            : regular data blocks;
 	__le32	i_block[EXT4_N_BLOCKS];/* Pointers to blocks */
+
 	__le32	i_generation;	/* File version (for NFS) */
 	__le32	i_file_acl_lo;	/* File ACL */
 	__le32	i_size_high;
@@ -1054,7 +1062,12 @@ struct ext4_super_block {
 /*10*/	__le32	s_free_inodes_count;	/* Free inodes count */
 	__le32	s_first_data_block;	/* First Data Block */
 	__le32	s_log_block_size;	/* Block size */
+
+        //Yuanguo: the bigalloc feature (EXT4_FEATURE_RO_COMPAT_BIGALLOC)
+        //     each bit in the ext4 block allocation bitmap addresses a cluster, which contains 2 ^ s_log_cluster_size
+        //     blocks; 
 	__le32	s_log_cluster_size;	/* Allocation cluster size */
+
 /*20*/	__le32	s_blocks_per_group;	/* # Blocks per group */
 	__le32	s_clusters_per_group;	/* # Clusters per group */
 	__le32	s_inodes_per_group;	/* # Inodes per group */
@@ -1179,7 +1192,7 @@ struct ext4_super_block {
 struct ext4_sb_info {
 	unsigned long s_desc_size;	/* Size of a group descriptor in bytes */
 	unsigned long s_inodes_per_block;/* Number of inodes per block */
-	unsigned long s_blocks_per_group;/* Number of blocks in a group */
+	unsigned long s_blocks_per_group;/* Number of blocks in a group *///Yuanguo:Group uses 1 block as block-bitmap, so s_blocks_per_group=num of bits in 1 block;
 	unsigned long s_clusters_per_group; /* Number of clusters in a group */
 	unsigned long s_inodes_per_group;/* Number of inodes in a group */
 	unsigned long s_itb_per_group;	/* Number of inode table blocks per group */
@@ -1299,7 +1312,7 @@ struct ext4_sb_info {
 	/* the size of zero-out chunk */
 	unsigned int s_extent_max_zeroout_kb;
 
-	unsigned int s_log_groups_per_flex;
+	unsigned int s_log_groups_per_flex;    //Yuanguo: a flex_bg contains 2^s_log_groups_per_flex groups;
 	struct flex_groups *s_flex_groups;
 	ext4_group_t s_flex_groups_allocated;
 
