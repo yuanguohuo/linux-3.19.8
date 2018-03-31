@@ -17,10 +17,10 @@
 #CTAGS=/usr/local/exuberant-ctags/bin/ctags
 #For Linux, not needed.
 CTAGS=ctags
-$CTAGS -f .tags -R --languages=c,c++ --c-kinds=+pl --c++-kinds=+pl --fields=+iaS --extra=+q *
+$CTAGS -f .tags -R --languages=c,c++ --c-kinds=+p --c++-kinds=+p --fields=+iaS --extra=+q *
 
 # 2. generate the reference data base for cscope:
-find . -type f | grep    \
+find -L . -type f -exec realpath {} \; | grep \
     -e "\.c$"            \
     -e "\.h$"            \
     -e "\.cc$"           \
