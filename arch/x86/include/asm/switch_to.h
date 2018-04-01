@@ -28,6 +28,31 @@ void __switch_to_xtra(struct task_struct *prev_p, struct task_struct *next_p,
  * Saving eflags is important. It switches not only IOPL between tasks,
  * it also protects other tasks from NT leaking through sysenter etc.
  */
+
+//Yuanguo:
+//   Some time ago, taskA switched to taskB. When taskA was paused, its 
+//   stack was saved like this:
+//        prev = taskA 
+//        next = taskB
+//
+//
+//   Now, consider taskX is switching to taskA: 
+//   Before __switch_to, taskA has not been resumed, and we are on the stack of 
+//   taskX, so,
+//        prev = taskX 
+//        next = taskA
+//   thus we know we are switching from taskX to taskA. 
+//
+//   However, after __switch_to, taskA is resumed, and we have restored the execution 
+//   environment of taskA, so we are on taskA's stack (saved when taskA switched 
+//   to taskB):
+//        prev = taskA 
+//        next = taskB
+//    Notice that we don't known "prev" of this task switching (taskX). Thanks to
+//    __switch_to, which stores the "prev" (taskX) in eax, so that we can
+//    retrieve it here in switch_to. Moreover we store it in the out-param "last", 
+//    so the caller of switch_to has a way toknow the "prev" task.
+
 #define switch_to(prev, next, last)					\
 do {									\
 	/*								\
