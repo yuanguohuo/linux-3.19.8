@@ -3020,7 +3020,11 @@ int _submit_bh(int rw, struct buffer_head *bh, unsigned long bio_flags)
 	 */
 	bio = bio_alloc(GFP_NOIO, 1);
 
+  //Yuanguo: start at 100th block (bh->b_blocknr = 100), each block is 4096
+  //bytes (bh->b_size = 4096), then the start-sector is 
+  //      100 * (4096 >> 9) = 100 * (4096/512) = 800
 	bio->bi_iter.bi_sector = bh->b_blocknr * (bh->b_size >> 9);
+
 	bio->bi_bdev = bh->b_bdev;
 	bio->bi_io_vec[0].bv_page = bh->b_page;
 	bio->bi_io_vec[0].bv_len = bh->b_size;
@@ -3093,13 +3097,21 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
 		if (!trylock_buffer(bh))
 			continue;
 		if (rw == WRITE) {
+      //Yuanguo: test_clear_buffer_dirty is defined in include/linux/buffer_head.h as a macro:
+      //                 test_clear_buffer_##name
+      // if dirty, mark it clean (clear dirty flag) and return true (the buffer cache won't assume 
+      // it's actually clean until the buffer gets unlocked).
 			if (test_clear_buffer_dirty(bh)) {
+        //Yuanguo: the completion handler (callback) which will be called when
+        //the request is finished.
 				bh->b_end_io = end_buffer_write_sync;
+
 				get_bh(bh);
 				submit_bh(WRITE, bh);
 				continue;
 			}
-		} else {
+		} else { //Yuanguo: for read (and others?)
+      //Yuanguo: do the read only when the buffer is not up-to-date.
 			if (!buffer_uptodate(bh)) {
 				bh->b_end_io = end_buffer_read_sync;
 				get_bh(bh);

@@ -282,7 +282,15 @@ inline void __blk_run_queue_uncond(struct request_queue *q)
 	 * can wait until all these request_fn calls have finished.
 	 */
 	q->request_fn_active++;
+
+  //Yuanguo: request_fn is a func pointer, what function does it point to?
+  //   take hd driver (see drivers/block/hd.c) for example: 
+  //   in function hd_init(), 
+  //          hd_queue = blk_init_queue(do_hd_request, &hd_lock);
+  //   so, for hd driver, q->request_fn points to do_hd_request.
+  //Yuanguo: thus, here goes to the driver ...
 	q->request_fn(q);
+
 	q->request_fn_active--;
 }
 
@@ -1605,6 +1613,7 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 			elv_bio_merged(q, req, bio);
 			if (!attempt_back_merge(q, req))
 				elv_merged_request(q, req, el_ret);
+      //Yuanguo: succeeded to merge, no need to put bio into queue;
 			goto out_unlock;
 		}
 	} else if (el_ret == ELEVATOR_FRONT_MERGE) {
@@ -1612,6 +1621,7 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 			elv_bio_merged(q, req, bio);
 			if (!attempt_front_merge(q, req))
 				elv_merged_request(q, req, el_ret);
+      //Yuanguo: succeeded to merge, no need to put bio into queue;
 			goto out_unlock;
 		}
 	}
@@ -1928,6 +1938,13 @@ void generic_make_request(struct bio *bio)
 	do {
 		struct request_queue *q = bdev_get_queue(bio->bi_bdev);
 
+    //Yuanguo: make_request_fn is a func pointer, which is set in:
+    //   block/blk-core.c      blk_init_queue            -->
+    //   block/blk-core.c      blk_init_queue_node       -->
+    //   block/blk-core.c      blk_init_allocated_queue  -->
+    //   block/blk-settings.c  blk_queue_make_request
+    // so, make_request_fn is set to function
+    //   block/blk-core.c:blk_queue_bio
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);
