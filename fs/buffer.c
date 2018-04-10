@@ -3103,7 +3103,13 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
       // it's actually clean until the buffer gets unlocked).
 			if (test_clear_buffer_dirty(bh)) {
         //Yuanguo: the completion handler (callback) which will be called when
-        //the request is finished.
+        //the request is finished. 
+        //Since
+	      //      bio->bi_end_io = end_bio_bh_io_sync;   //See function _submit_bh
+        //and
+        //      end_bio_bh_io_sync calls bh->b_end_io(...)
+        //
+        //So, this callback will be called when bio->bi_end_io is called.
 				bh->b_end_io = end_buffer_write_sync;
 
 				get_bh(bh);
@@ -3113,6 +3119,7 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
 		} else { //Yuanguo: for read (and others?)
       //Yuanguo: do the read only when the buffer is not up-to-date.
 			if (!buffer_uptodate(bh)) {
+        //Yuanguo: similar with end_buffer_write_sync above;
 				bh->b_end_io = end_buffer_read_sync;
 				get_bh(bh);
 				submit_bh(rw, bh);
