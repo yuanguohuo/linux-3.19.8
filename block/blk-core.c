@@ -1943,8 +1943,11 @@ void generic_make_request(struct bio *bio)
     //   block/blk-core.c      blk_init_queue_node       -->
     //   block/blk-core.c      blk_init_allocated_queue  -->
     //   block/blk-settings.c  blk_queue_make_request
-    // so, make_request_fn is set to function
-    //   block/blk-core.c:blk_queue_bio
+    //so, make_request_fn is set to function blk_queue_bio() in
+    //   block/blk-core.c
+    //
+    //Plus, blk_init_queue is called in device driver initialization, as
+    //   an example, see in hd_init() in drivers/block/hd.c;
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);

@@ -1473,10 +1473,15 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 	unsigned int prev_offset;
 	int error = 0;
 
+  //Yuanguo: first page #
 	index = *ppos >> PAGE_CACHE_SHIFT;
+
 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
 	prev_offset = ra->prev_pos & (PAGE_CACHE_SIZE-1);
+
+  //Yuanguo: last page #
 	last_index = (*ppos + iter->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
+  //Yuanguo: offset within the first page
 	offset = *ppos & ~PAGE_CACHE_MASK;
 
 	for (;;) {
@@ -1564,9 +1569,15 @@ page_ok:
 		 */
 
 		ret = copy_page_to_iter(page, offset, nr, iter);
+
+    //Yuanguo: increase offset
 		offset += ret;
+    //Yuanguo: if offset > PAGE_SIZE, ++index, go to next page;
 		index += offset >> PAGE_CACHE_SHIFT;
+    //Yuanguo: if go to next page (offset > PAGE_SIZE), let offset point to 
+    //    position within the nex page.
 		offset &= ~PAGE_CACHE_MASK;
+
 		prev_offset = offset;
 
 		page_cache_release(page);
@@ -1607,6 +1618,8 @@ readpage:
 		 */
 		ClearPageError(page);
 		/* Start the actual read. The read will unlock the page. */
+    //Yuanguo: for ext4, readpage is ext4_readpage, see ext4_aops in 
+    //   fs/ext4/inode.c;
 		error = mapping->a_ops->readpage(filp, page);
 
 		if (unlikely(error)) {
