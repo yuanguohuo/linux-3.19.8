@@ -780,6 +780,7 @@ static inline int zone_to_nid(struct zone *zone)
 }
 
 #ifdef NODE_NOT_IN_PAGE_FLAGS
+#error "Yuanguo, not this case?"
 extern int page_to_nid(const struct page *page);
 #else
 static inline int page_to_nid(const struct page *page)

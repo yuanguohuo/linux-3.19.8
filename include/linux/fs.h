@@ -1942,9 +1942,13 @@ static inline int __mandatory_lock(struct inode *ino)
  * ... and these candidates should be on MS_MANDLOCK mounted fs,
  * otherwise these will be advisory locks
  */
-
+//Yuanguo: mandatory lock is active only when
+//    1. filesystem is mounted with option "-o mand"
+// and
+//    2. locked file has "set-group-id" set AND "group-execute" cleared;
 static inline int mandatory_lock(struct inode *ino)
 {
+        //Yuanguo: "-o mand"    && "set-group-id" set and "group-execute" cleared
 	return IS_MANDLOCK(ino) && __mandatory_lock(ino);
 }
 
