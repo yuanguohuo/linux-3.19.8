@@ -419,6 +419,7 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, int nr_iovecs, struct bio_set *bs)
 	void *p;
 
 	if (!bs) {
+    //Yuanguo: case1, bs==NULL, so allocate from general-purpose slab;
 		if (nr_iovecs > UIO_MAXIOV)
 			return NULL;
 
@@ -428,6 +429,8 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, int nr_iovecs, struct bio_set *bs)
 		front_pad = 0;
 		inline_vecs = nr_iovecs;
 	} else {
+    //Yuanguo: case2, bs!=NULL, so allocate from bs->bio_pool;
+
 		/* should not use nobvec bioset for nr_iovecs > 0 */
 		if (WARN_ON_ONCE(!bs->bvec_pool && nr_iovecs > 0))
 			return NULL;
@@ -469,10 +472,19 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, int nr_iovecs, struct bio_set *bs)
 	if (unlikely(!p))
 		return NULL;
 
+  //Yuanguo: no matter case1 or case2, till now, we have got a 'struct bio' at address 
+  //            p + front_pad,
+  // with inline_vecs inline iovecs;
+
 	bio = p + front_pad;
 	bio_init(bio);
 
 	if (nr_iovecs > inline_vecs) {
+    //Yuanguo: if we need more iovecs than that's inline. This may only happen to
+    //  case2, because case1 always kmalloc enough (nr_iovecs) inline iovecs;
+
+    //Yuanguo: re-alloc iovecs from bs->bvec_pool; (the inline ones are left
+    //unused and wasted?)
 		bvl = bvec_alloc(gfp_mask, nr_iovecs, &idx, bs->bvec_pool);
 		if (!bvl && gfp_mask != saved_gfp) {
 			punt_bios_to_rescuer(bs);
@@ -487,6 +499,8 @@ struct bio *bio_alloc_bioset(gfp_t gfp_mask, int nr_iovecs, struct bio_set *bs)
 	} else if (nr_iovecs) {
 		bvl = bio->bi_inline_vecs;
 	}
+
+  //Yuanguo: till now, no matter if iovecs are inline or not, bvl points to it.
 
 	bio->bi_pool = bs;
 	bio->bi_flags |= idx << BIO_POOL_OFFSET;

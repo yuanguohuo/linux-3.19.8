@@ -44,7 +44,13 @@ struct bvec_iter {
  * stacking drivers)
  */
 struct bio {
+  //Yuanguo: one 'struct request' may have many 'struct bio' objects, bi_next
+  //    links them together. And 
+	//           struct bio *bio;
+	//           struct bio *biotail;
+  //    in 'struct request' point to the head and tail respectively.
 	struct bio		*bi_next;	/* request queue link */
+
 	struct block_device	*bi_bdev;
 	unsigned long		bi_flags;	/* status, command, etc */
 	unsigned long		bi_rw;		/* bottom bits READ/WRITE,
@@ -56,6 +62,7 @@ struct bio {
 	/* Number of segments in this BIO after
 	 * physical address coalescing is performed.
 	 */
+  //Yuanguo: one 'struct bio' may have many segments;
 	unsigned int		bi_phys_segments;
 
 	/*
@@ -84,18 +91,36 @@ struct bio {
 #endif
 	};
 
+  //Yuanguo: bi_max_vecs is "how many do we have/how many allocated", 
+  //  here bi_vcnt is "how many are actually used"
 	unsigned short		bi_vcnt;	/* how many bio_vec's */
 
 	/*
 	 * Everything starting with bi_max_vecs will be preserved by bio_reset()
 	 */
 
+  //Yuanguo: how many 'struct bio_vec' objects do we have, no matter if they are inlined
+  //  or not.
+  //  Note, our 'struct bio_vec' objects are all inlined or none inlined, see
+  //  function bio_alloc_bioset();
 	unsigned short		bi_max_vecs;	/* max bvl_vecs we can hold */
 
 	atomic_t		bi_cnt;		/* pin count */
 
+  //Yuanguo: if our 'struct bio_vec' objects are inlined, 
+  //            bi_io_vec == bi_inline_vecs;
+  //  else, 
+  //            bi_io_vec == the actual vec list;
+  //  so, we should use bi_io_vec instead of bi_inline_vecs to access 
+  //  'struct bio_vec' objects;
+  //
+  //  Note, our 'struct bio_vec' objects are all inlined or none inlined, see
+  //  function bio_alloc_bioset();
 	struct bio_vec		*bi_io_vec;	/* the actual vec list */
 
+  //Yuanguo: if 'this bio' is allocated from a 'struct bio_set', bi_pool points
+  //  to that struct bio_set; else, bi_pool = NULL;
+  //  see function bio_alloc_bioset();
 	struct bio_set		*bi_pool;
 
 	/*

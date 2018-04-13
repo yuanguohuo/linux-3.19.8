@@ -1602,8 +1602,8 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	 * any locks.
 	 */
 	if (!blk_queue_nomerges(q) &&
-	    blk_attempt_plug_merge(q, bio, &request_count))
-		return;
+	    blk_attempt_plug_merge(q, bio, &request_count)) //Yuanguo: return true if merge successful; false, otherwise
+		return;   //Yuanguo: succeeded to merge, no need to put bio into queue;
 
 	spin_lock_irq(q->queue_lock);
 
@@ -1671,11 +1671,17 @@ get_rq:
 				trace_block_plug(q);
 			}
 		}
+
+    //Yuanguo: link this 'struct request' into current->plug->list;
+    //   when does the request get submitted?
 		list_add_tail(&req->queuelist, &plug->list);
+
 		blk_account_io_start(req, true);
 	} else {
 		spin_lock_irq(q->queue_lock);
 		add_acct_request(q, req, where);
+
+    //Yuanguo: run the request_queue now...
 		__blk_run_queue(q);
 out_unlock:
 		spin_unlock_irq(q->queue_lock);
@@ -1943,8 +1949,7 @@ void generic_make_request(struct bio *bio)
     //   block/blk-core.c      blk_init_queue_node       -->
     //   block/blk-core.c      blk_init_allocated_queue  -->
     //   block/blk-settings.c  blk_queue_make_request
-    //so, make_request_fn is set to function blk_queue_bio() in
-    //   block/blk-core.c
+    //so, make_request_fn is set to function blk_queue_bio();
     //
     //Plus, blk_init_queue is called in device driver initialization, as
     //   an example, see in hd_init() in drivers/block/hd.c;
