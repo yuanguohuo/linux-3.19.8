@@ -3098,10 +3098,11 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
 			continue;
 		if (rw == WRITE) {
       //Yuanguo: test_clear_buffer_dirty is defined in include/linux/buffer_head.h as a macro:
-      //                 test_clear_buffer_##name
+      //                 test_clear_buffer_##name   //clear a bit and return its old value
       // if dirty, mark it clean (clear dirty flag) and return true (the buffer cache won't assume 
-      // it's actually clean until the buffer gets unlocked).
-			if (test_clear_buffer_dirty(bh)) {
+      // it's actually clean until the buffer gets unlocked). 
+      // if not dirty, return false;
+			if (test_clear_buffer_dirty(bh)) {  //Yuanguo: if not dirty, do nothing ...
         //Yuanguo: the completion handler (callback) which will be called when
         //the request is finished. 
         //Since
@@ -3117,8 +3118,7 @@ void ll_rw_block(int rw, int nr, struct buffer_head *bhs[])
 				continue;
 			}
 		} else { //Yuanguo: for read (and others?)
-      //Yuanguo: do the read only when the buffer is not up-to-date.
-			if (!buffer_uptodate(bh)) {
+			if (!buffer_uptodate(bh)) {   //Yuanguo: if up-to-date, do nothing ...
         //Yuanguo: similar with end_buffer_write_sync above;
 				bh->b_end_io = end_buffer_read_sync;
 				get_bh(bh);
