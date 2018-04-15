@@ -318,6 +318,7 @@ static inline int ll_new_hw_segment(struct request_queue *q,
 {
 	int nr_phys_segs = bio_phys_segments(q, bio);
 
+  //Yuanguo: too many segments after merge, so cannot merge.
 	if (req->nr_phys_segments + nr_phys_segs > queue_max_segments(q))
 		goto no_merge;
 
@@ -341,6 +342,7 @@ no_merge:
 int ll_back_merge_fn(struct request_queue *q, struct request *req,
 		     struct bio *bio)
 {
+  //Yuanguo: too large after merge, so cannot merge;
 	if (blk_rq_sectors(req) + bio_sectors(bio) >
 	    blk_rq_get_max_sectors(req)) {
 		req->cmd_flags |= REQ_NOMERGE;
@@ -620,8 +622,8 @@ bool blk_rq_merge_ok(struct request *rq, struct bio *bio)
 int blk_try_merge(struct request *rq, struct bio *bio)
 {
 	if (blk_rq_pos(rq) + blk_rq_sectors(rq) == bio->bi_iter.bi_sector)
-		return ELEVATOR_BACK_MERGE;
+		return ELEVATOR_BACK_MERGE;  //Yuanguo: {rq start} + {rq size} == {bio start}, bio can be merged at back;
 	else if (blk_rq_pos(rq) - bio_sectors(bio) == bio->bi_iter.bi_sector)
-		return ELEVATOR_FRONT_MERGE;
+		return ELEVATOR_FRONT_MERGE; //Yuanguo: {rq start} - {bio size} == {bio start}, bio can be merged at front;
 	return ELEVATOR_NO_MERGE;
 }

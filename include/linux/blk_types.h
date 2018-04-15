@@ -44,11 +44,14 @@ struct bvec_iter {
  * stacking drivers)
  */
 struct bio {
-  //Yuanguo: one 'struct request' may have many 'struct bio' objects, bi_next
-  //    links them together. And 
-	//           struct bio *bio;
-	//           struct bio *biotail;
-  //    in 'struct request' point to the head and tail respectively.
+  //Yuanguo: bi_next is used in the following 2 places:
+  //    1. current->bio_list in function generic_make_request() uses bi_next 
+  //       to link bio objects in recursion;
+  //    2. one 'struct request' may have many 'struct bio' objects, bi_next
+  //       links them together. And 
+  //           struct bio *bio;
+  //           struct bio *biotail;
+  //       in 'struct request' point to the head and tail respectively.
 	struct bio		*bi_next;	/* request queue link */
 
 	struct block_device	*bi_bdev;

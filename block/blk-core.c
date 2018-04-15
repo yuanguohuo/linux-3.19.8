@@ -1584,6 +1584,13 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	 * certain limit bounced to low memory (ie for highmem, or even
 	 * ISA dma in theory)
 	 */
+  //Yuanguo: 
+  // In 32bit system, data going to storage device must be stored at 
+  // low-memory, if an data for an IO resides in high-memory, kernel 
+  // will alloc a buffer from low-memory, and copy the data. 
+  // DMA can only access the low 16MB RAM, so when necessary kernel will
+  // alloc buffer from low 16MB, and copy the data.
+  // They are called bounce buffering.
 	blk_queue_bounce(q, &bio);
 
 	if (bio_integrity_enabled(bio) && bio_integrity_prep(bio)) {
@@ -1601,30 +1608,47 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	 * Check if we can merge with the plugged list before grabbing
 	 * any locks.
 	 */
-	if (!blk_queue_nomerges(q) &&
+	if (!blk_queue_nomerges(q) &&     //Yuanguo: NOMERGES flag not set, so merge is allowed.
 	    blk_attempt_plug_merge(q, bio, &request_count)) //Yuanguo: return true if merge successful; false, otherwise
 		return;   //Yuanguo: succeeded to merge, no need to put bio into queue;
 
 	spin_lock_irq(q->queue_lock);
 
+  //Yuanguo: not merge here, just figure out the BACK_MERGE or FRONT_MERGE
 	el_ret = elv_merge(q, &req, bio);
+
 	if (el_ret == ELEVATOR_BACK_MERGE) {
-		if (bio_attempt_back_merge(q, req, bio)) {
+		if (bio_attempt_back_merge(q, req, bio)) {  //Yuanguo: actual merge takes place here.
+      //Yuanguo: call callback of elevator (elevator_bio_merged_fn);
 			elv_bio_merged(q, req, bio);
+
+      //Yuanguo: 连锁反应? req-A and req-B couldn't be merged before, but after a bio is 
+      //merged at back of req-A, they can be merged now ...
 			if (!attempt_back_merge(q, req))
 				elv_merged_request(q, req, el_ret);
+
       //Yuanguo: succeeded to merge, no need to put bio into queue;
 			goto out_unlock;
 		}
 	} else if (el_ret == ELEVATOR_FRONT_MERGE) {
-		if (bio_attempt_front_merge(q, req, bio)) {
+		if (bio_attempt_front_merge(q, req, bio)) {  //Yuanguo: actual merge takes place here.
+      //Yuanguo: call callback of elevator (elevator_bio_merged_fn);
 			elv_bio_merged(q, req, bio);
+
+      //Yuanguo: 连锁反应? req-C and req-D couldn't be merged before, but after a bio is 
+      //merged at front of req-D, they can be merged now ...
 			if (!attempt_front_merge(q, req))
 				elv_merged_request(q, req, el_ret);
+
       //Yuanguo: succeeded to merge, no need to put bio into queue;
 			goto out_unlock;
 		}
 	}
+
+  //Yuanguo: couldn't be merged, alloc a 'struct request' req for bio, and 
+  //   1. pu req in current->plug->list;
+  // or
+  //   2. put req in q and run it;
 
 get_rq:
 	/*
@@ -1632,7 +1656,7 @@ get_rq:
 	 * but we need to set it earlier to expose the sync flag to the
 	 * rq allocator and io schedulers.
 	 */
-	rw_flags = bio_data_dir(bio);
+	rw_flags = bio_data_dir(bio);  //Yuanguo: data direction: READ(0), WRITE(1)
 	if (sync)
 		rw_flags |= REQ_SYNC;
 
@@ -1679,6 +1703,8 @@ get_rq:
 		blk_account_io_start(req, true);
 	} else {
 		spin_lock_irq(q->queue_lock);
+
+    //Yuanguo: put req in q;
 		add_acct_request(q, req, where);
 
     //Yuanguo: run the request_queue now...
