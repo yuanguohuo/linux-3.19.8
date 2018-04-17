@@ -379,8 +379,12 @@ ssize_t do_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *pp
 	struct kiocb kiocb;
 	ssize_t ret;
 
-  //printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=...%s/%s len=%lu\n",
-  //    __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  //Yuanguo: in case of too many logs ...
+  if(len==125)
+  {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=...%s/%s len=%lu\n",
+        __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  }
 
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
@@ -402,14 +406,19 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
 	struct iov_iter iter;
 	ssize_t ret;
 
-  //printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=...%s/%s len=%lu\n",
-  //    __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  //Yuanguo: in case of too many logs ...
+  if(len==125)
+  {
+    printk(KERN_DEBUG "YuanguoDbg func %s(): filp->f_path=...%s/%s len=%lu\n",
+        __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
+  }
 
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
 	kiocb.ki_nbytes = len;
 	iov_iter_init(&iter, READ, &iov, 1, len);
 
+  //Yuanguo: for ext4, filp->f_op->read_iter = generic_file_read_iter
 	ret = filp->f_op->read_iter(&kiocb, &iter);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&kiocb);
@@ -424,6 +433,7 @@ ssize_t __vfs_read(struct file *file, char __user *buf, size_t count,
 {
 	ssize_t ret;
 
+  //Yuanguo: for ext4, file->f_op->read = new_sync_read
 	if (file->f_op->read)
 		ret = file->f_op->read(file, buf, count, pos);
 	else if (file->f_op->aio_read)

@@ -387,6 +387,29 @@ int ext4_force_commit(struct super_block *sb);
 /*
  * Ext4 inode journal modes
  */
+//Yuanguo:
+//
+//           mode                 | how to enable  | performance | safty  |             description
+// -------------------------------+----------------+-------------+--------+------------------------------------------------
+// EXT4_INODE_JOURNAL_DATA_MODE   |                |             |        | full data and metadata journaling. All 
+//                                |                |             |        | new data is written to journal first, then 
+//                                |                |             |        | to its final position. when crash, journal
+//                                | data=journal   |  worest     | best   | can be replayed. like ceph filestore.
+//                                |                |             |        | Need to disable: 
+//                                |                |             |        |     delayed allocation
+//                                |                |             |        |     O_DIRECT
+// -------------------------------+----------------+-------------+--------+------------------------------------------------
+// EXT4_INODE_ORDERED_DATA_MODE   |                |             |        | only officially journal metadata, but logically
+//                                |                |             |        | group metadata with data blocks into a transaction  
+//                                | data=ordered   |  medium     | medium | When it's time to write the metadata, the 
+//                                |                |             |        | associated data blocks are written first.
+//                                |                |             |        | this is the default behavior;
+// -------------------------------+----------------+-------------+--------+------------------------------------------------
+// EXT4_INODE_WRITEBACK_DATA_MODE | data=writeback |  best       | worest | does not journal data at all.  A crash+recovery
+//                                |                |             |        | can cause incorrect data to appear in files 
+//                                |                |             |        | which were written shortly before the crash.
+
+
 #define EXT4_INODE_JOURNAL_DATA_MODE	0x01 /* journal data mode */
 #define EXT4_INODE_ORDERED_DATA_MODE	0x02 /* ordered data mode */
 #define EXT4_INODE_WRITEBACK_DATA_MODE	0x04 /* writeback data mode */

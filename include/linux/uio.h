@@ -26,9 +26,9 @@ enum {
 };
 
 struct iov_iter {
-	int type;
+	int type;           //Yuanguo: READ(0) or WRITE(0)
 	size_t iov_offset;
-	size_t count;
+	size_t count;       //Yuanguo: how many bytes to read/write?
 	union {
 		const struct iovec *iov;
 		const struct kvec *kvec;

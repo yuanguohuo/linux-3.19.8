@@ -1722,6 +1722,7 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 					pos + count - 1);
 		if (!retval) {
 			struct iov_iter data = *iter;
+      //Yuanguo: for ext4 mapping->a_ops->direct_IO = ext4_direct_IO
 			retval = mapping->a_ops->direct_IO(READ, iocb, &data, pos);
 		}
 

@@ -680,12 +680,12 @@ static unsigned long __fget_light(unsigned int fd, fmode_t mask)
 	struct files_struct *files = current->files;
 	struct file *file;
 
-	if (atomic_read(&files->count) == 1) {
+	if (atomic_read(&files->count) == 1) { //Yuanguo: only 1 process is using files (not shared), no need to inc file->f_count
 		file = __fcheck_files(files, fd);
 		if (!file || unlikely(file->f_mode & mask))
 			return 0;
 		return (unsigned long)file;
-	} else {
+	} else {  //Yuanguo: more than 1 processes are sharing files, need to inc file->f_count
 		file = __fget(fd, mask);
 		if (!file)
 			return 0;

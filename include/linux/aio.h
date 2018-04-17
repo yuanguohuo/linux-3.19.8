@@ -41,8 +41,8 @@ struct kiocb {
 	} ki_obj;
 
 	__u64			ki_user_data;	/* user's data for completion */
-	loff_t			ki_pos;
-	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */
+	loff_t			ki_pos;                                        //Yuanguo: file pos
+	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */ //Yuanguo: how many bytes from file pos. 
 
 	struct list_head	ki_list;	/* the aio core uses this
 						 * for cancellation */
@@ -62,7 +62,7 @@ static inline bool is_sync_kiocb(struct kiocb *kiocb)
 static inline void init_sync_kiocb(struct kiocb *kiocb, struct file *filp)
 {
 	*kiocb = (struct kiocb) {
-			.ki_ctx = NULL,
+			.ki_ctx = NULL,    //Yuanguo: ki_ctx == NULL indicates it's a sync op
 			.ki_filp = filp,
 			.ki_obj.tsk = current,
 		};
