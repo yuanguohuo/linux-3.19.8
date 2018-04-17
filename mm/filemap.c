@@ -1722,7 +1722,13 @@ generic_file_read_iter(struct kiocb *iocb, struct iov_iter *iter)
 					pos + count - 1);
 		if (!retval) {
 			struct iov_iter data = *iter;
-      //Yuanguo: for ext4 mapping->a_ops->direct_IO = ext4_direct_IO
+      //Yuanguo: 
+      //  for ext4 mapping->a_ops->direct_IO = ext4_direct_IO
+      //  what is a_ops? 
+      //     a_ops = ext4_journalled_aops,  if mode=journal
+      //     a_ops = ext4_aops              if mode=writeback/ordered && delay allocation not enabled
+      //     a_ops = ext4_da_aops           if mode=writeback/ordered && delay allocation enabled
+      //  See EXT4_INODE_JOURNAL_DATA_MODE, EXT4_INODE_ORDERED_DATA_MODE and EXT4_INODE_WRITEBACK_DATA_MODE
 			retval = mapping->a_ops->direct_IO(READ, iocb, &data, pos);
 		}
 

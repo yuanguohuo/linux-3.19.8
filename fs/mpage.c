@@ -369,6 +369,8 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 
 		prefetchw(&page->flags);
 		list_del(&page->lru);
+
+    //Yuanguo: add the page into page cache, return 0 to indicate success
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
 			bio = do_mpage_readpage(bio, page,

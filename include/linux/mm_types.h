@@ -59,7 +59,7 @@ struct page {
 	/* Second double word */
 	struct {
 		union {
-			pgoff_t index;		/* Our offset within mapping. */
+			pgoff_t index;		/* Our offset within mapping. */ //Yuanguo: n-th page in the file   
 			void *freelist;		/* sl[aou]b first free object */
 			bool pfmemalloc;	/* If set by the page allocator,
 						 * ALLOC_NO_WATERMARKS was set

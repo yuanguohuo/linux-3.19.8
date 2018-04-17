@@ -3111,6 +3111,9 @@ static int ext4_journalled_set_page_dirty(struct page *page)
 	return __set_page_dirty_nobuffers(page);
 }
 
+//Yuanguo: for data=ordered (ordered data mode) or data=writeback (writeback data mode), and
+//   delay allocation is NOT enabled;
+//See EXT4_INODE_JOURNAL_DATA_MODE, EXT4_INODE_ORDERED_DATA_MODE and EXT4_INODE_WRITEBACK_DATA_MODE
 static const struct address_space_operations ext4_aops = {
 	.readpage		= ext4_readpage,
 	.readpages		= ext4_readpages,
@@ -3127,6 +3130,8 @@ static const struct address_space_operations ext4_aops = {
 	.error_remove_page	= generic_error_remove_page,
 };
 
+//Yuanguo: for data=journal (journal data mode)
+//See EXT4_INODE_JOURNAL_DATA_MODE, EXT4_INODE_ORDERED_DATA_MODE and EXT4_INODE_WRITEBACK_DATA_MODE
 static const struct address_space_operations ext4_journalled_aops = {
 	.readpage		= ext4_readpage,
 	.readpages		= ext4_readpages,
@@ -3143,6 +3148,9 @@ static const struct address_space_operations ext4_journalled_aops = {
 	.error_remove_page	= generic_error_remove_page,
 };
 
+//Yuanguo: for data=ordered (ordered data mode) or data=writeback (writeback data mode), and
+//   delay allocation is enabled;
+//See EXT4_INODE_JOURNAL_DATA_MODE, EXT4_INODE_ORDERED_DATA_MODE and EXT4_INODE_WRITEBACK_DATA_MODE
 static const struct address_space_operations ext4_da_aops = {
 	.readpage		= ext4_readpage,
 	.readpages		= ext4_readpages,

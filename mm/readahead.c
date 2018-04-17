@@ -117,6 +117,9 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 
 	blk_start_plug(&plug);
 
+  //Yuanguo: for ext4, mapping->a_ops->readpages = ext4_readpages, regardless
+  //      what the journal mode is. It will add pages into page cache and then
+  //      fill the pages with data read from disk ... 
 	if (mapping->a_ops->readpages) {
 		ret = mapping->a_ops->readpages(filp, mapping, pages, nr_pages);
 		/* Clean up the remaining pages */
@@ -124,11 +127,16 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 		goto out;
 	}
 
+  //Yuanguo: in case that there is no readpages callback ... 
 	for (page_idx = 0; page_idx < nr_pages; page_idx++) {
 		struct page *page = list_to_page(pages);
 		list_del(&page->lru);
+
+    //Yuanguo: add the page into page cache, return 0 to indicate success
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
+      //Yuanguo: for ext4, mapping->a_ops->readpage = ext4_readpage. However
+      //   ext4 has a readpages callback, we should not get here.
 			mapping->a_ops->readpage(filp, page);
 		}
 		page_cache_release(page);
@@ -170,20 +178,27 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * Preallocate as many pages as we will need.
 	 */
 	for (page_idx = 0; page_idx < nr_to_read; page_idx++) {
+    //Yuanguo: offset is the 1st page # to read
 		pgoff_t page_offset = offset + page_idx;
 
 		if (page_offset > end_index)
 			break;
 
+    //Yuanguo: search from radix tree, to see if page numbered page_offset
+    //    is already in page cache.
 		rcu_read_lock();
 		page = radix_tree_lookup(&mapping->page_tree, page_offset);
 		rcu_read_unlock();
+
+    //Yuanguo: already in page cache
 		if (page && !radix_tree_exceptional_entry(page))
 			continue;
 
+    //Yuanguo: alloc a page from buddy system.
 		page = page_cache_alloc_readahead(mapping);
 		if (!page)
 			break;
+
 		page->index = page_offset;
 		list_add(&page->lru, &page_pool);
 		if (page_idx == nr_to_read - lookahead_size)
@@ -493,6 +508,20 @@ void page_cache_sync_readahead(struct address_space *mapping,
 	/* no read-ahead */
 	if (!ra->ra_pages)
 		return;
+
+  //Yuanguo: FMODE_RANDOM can be set by fadvise64_64() in mm/fadvise.c; and
+  //   user may call fadvise64_64() via API posix_fadvise();
+  // fadvise64_64() can do many other works, such as:
+  //     POSIX_FADV_SEQUENTIAL: 
+  //            The application expects to access the specified data sequentially.
+  //     POSIX_FADV_RANDOM
+  //            The specified data will be accessed in random order.
+  //     POSIX_FADV_NOREUSE
+  //            The specified data will be accessed only once.
+  //     POSIX_FADV_WILLNEED
+  //            The specified data will be accessed in the near future. Yuanguo: do readahead, same as here.
+  //     POSIX_FADV_DONTNEED
+  //            The specified data will not be accessed in the near future.
 
 	/* be dumb */
 	if (filp && (filp->f_mode & FMODE_RANDOM)) {
