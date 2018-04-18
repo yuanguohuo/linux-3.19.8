@@ -332,11 +332,15 @@ static int radix_tree_extend(struct radix_tree_root *root, unsigned long index)
 
 	if (root->rnode == NULL) {
 		root->height = height;
+    //Yuanguo: an empty tree is returned, it's fine for __radix_tree_create, where 
+    //  the tree will grow from root towards the leaf ...
 		goto out;
 	}
 
 	do {
 		unsigned int newheight;
+
+    //Yuanguo: alloc a 'struct radix_tree_node' object
 		if (!(node = radix_tree_node_alloc(root)))
 			return -ENOMEM;
 
@@ -349,16 +353,21 @@ static int radix_tree_extend(struct radix_tree_root *root, unsigned long index)
 		/* Increase the height.  */
 		newheight = root->height+1;
 		BUG_ON(newheight & ~RADIX_TREE_HEIGHT_MASK);
+
+    //Yuanguo: the new node becomes root, original root becomes its 1st (0-th) child
 		node->path = newheight;
 		node->count = 1;
 		node->parent = NULL;
 		slot = root->rnode;
 		if (newheight > 1) {
 			slot = indirect_to_ptr(slot);
+      //Yuanguo: the new node becomes original root's parent
 			slot->parent = node;
 		}
 		node->slots[0] = slot;
 		node = ptr_to_indirect(node);
+
+    //Yuanguo: root->rnode = node
 		rcu_assign_pointer(root->rnode, node);
 		root->height = newheight;
 	} while (height > root->height);
@@ -391,6 +400,9 @@ int __radix_tree_create(struct radix_tree_root *root, unsigned long index,
 
 	/* Make sure the tree is high enough.  */
 	if (index > radix_tree_maxindex(root->height)) {
+    //Yuanguo: if not high enough, insert a new root,
+    //    original root becomes new root's child. 
+    //    Thus, the tree grows towards the root ...
 		error = radix_tree_extend(root, index);
 		if (error)
 			return error;
@@ -401,30 +413,56 @@ int __radix_tree_create(struct radix_tree_root *root, unsigned long index,
 	height = root->height;
 	shift = (height-1) * RADIX_TREE_MAP_SHIFT;
 
+  //Yuanguo:  the tree grows towards the leaf ...
+  //   slot: current
+  //   node: parent
+  //   initial state: slot = root->rnode (may be NULL)
 	offset = 0;			/* uninitialised var warning */
 	while (height > 0) {
 		if (slot == NULL) {
+      //Yuanguo: current does not exist, alloc it ...
 			/* Have to add a child node.  */
 			if (!(slot = radix_tree_node_alloc(root)))
 				return -ENOMEM;
+
 			slot->path = height;
 			slot->parent = node;
+
+      //Yuanguo: if parent != NULL, parent->slots[offset] = current
+      //         if parent == NULL, root->rnode = current; Since the tree is growing from root 
+      //                     towards leaf, this may happen only once (when root->rnode=NULL)
 			if (node) {
+        //Yuanguo: parent->slots[offset] = current
 				rcu_assign_pointer(node->slots[offset], slot);
+        //Yuanguo: parent has 1 more child
 				node->count++;
+        //Yuanguo: current is the n-th child of its parent (n=offset)
 				slot->path |= offset << RADIX_TREE_HEIGHT_SHIFT;
 			} else
 				rcu_assign_pointer(root->rnode, ptr_to_indirect(slot));
 		}
 
 		/* Go a level down */
+
+    //Yuanguo: slot is node's n-th child (n=offset). 
+    //   e.g. 
+    //      index = 010100 000100 001001 b
+    //      height = 3
+    //   then,
+    //      shift = 12,  offset = 010100 b
+    //      shift = 6,   offset = 000100 b 
+    //      shift = 0,   offset = 001001 b 
 		offset = (index >> shift) & RADIX_TREE_MAP_MASK;
+
 		node = slot;
 		slot = node->slots[offset];
 		shift -= RADIX_TREE_MAP_SHIFT;
 		height--;
 	}
 
+  //Yuanguo: 'nodep' should be the node to which we insert the item;
+  //         'slotp' points to n-th child of 'nodep' (the right position to insert the item). It
+  //                should be NULL, if not NULL, it means the item to be inserted already exists.
 	if (nodep)
 		*nodep = node;
 	if (slotp)
@@ -449,11 +487,18 @@ int radix_tree_insert(struct radix_tree_root *root,
 
 	BUG_ON(radix_tree_is_indirect_ptr(item));
 
+  //Yuanguo: 'node' should be the node to which we insert the item;
+  //         'slot' points to n-th child of 'node' (the right position to insert the item). *slot 
+  //                should be NULL, if not NULL, it means the item to be inserted already exists.
 	error = __radix_tree_create(root, index, &node, &slot);
 	if (error)
 		return error;
+
+  //Yuanguo: the item to be inserted already exists
 	if (*slot != NULL)
 		return -EEXIST;
+
+  //Yuanguo: insert the item at position '*slot' 
 	rcu_assign_pointer(*slot, item);
 
 	if (node) {
