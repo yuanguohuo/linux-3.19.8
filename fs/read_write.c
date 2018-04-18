@@ -413,15 +413,20 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
         __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
   }
 
+  //Yuanguo: read from where?
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
 	kiocb.ki_nbytes = len;
+
+  //Yuanguo: where to put the content we read?
 	iov_iter_init(&iter, READ, &iov, 1, len);
 
   //Yuanguo: for ext4, filp->f_op->read_iter = generic_file_read_iter
 	ret = filp->f_op->read_iter(&kiocb, &iter);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&kiocb);
+
+  //Yuanguo: output the updated file pos
 	*ppos = kiocb.ki_pos;
 	return ret;
 }
@@ -457,7 +462,9 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	if (unlikely(!access_ok(VERIFY_WRITE, buf, count)))
 		return -EFAULT;
 
+  //Yuanguo: check 1. parameters; 2. mandatory lock; 3. security permission
 	ret = rw_verify_area(READ, file, pos, count);
+
 	if (ret >= 0) {
 		count = ret;
 		ret = __vfs_read(file, buf, count, pos);

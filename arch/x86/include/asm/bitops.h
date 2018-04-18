@@ -93,6 +93,9 @@ set_bit(long nr, volatile unsigned long *addr)
  */
 static inline void __set_bit(long nr, volatile unsigned long *addr)
 {
+        //Yuanguo: 
+        //         CF = nr-th bit in addr
+        //         nr-th bit in addr = 1
 	asm volatile("bts %1,%0" : ADDR : "Ir" (nr) : "memory");
 }
 

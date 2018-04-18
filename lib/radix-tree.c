@@ -360,6 +360,7 @@ static int radix_tree_extend(struct radix_tree_root *root, unsigned long index)
 		node->parent = NULL;
 		slot = root->rnode;
 		if (newheight > 1) {
+      //Yuanguo: if root is indirect, the lowest bit of the slot(root->rnode) was set to 1, clear it!
 			slot = indirect_to_ptr(slot);
       //Yuanguo: the new node becomes original root's parent
 			slot->parent = node;
@@ -539,24 +540,44 @@ void *__radix_tree_lookup(struct radix_tree_root *root, unsigned long index,
 	if (node == NULL)
 		return NULL;
 
+  //Yuanguo: if not indirect, root-rnode points to data item, rather than a  
+  //   'struct radix_tree_node'; so, there is only 1 data item, whose index 
+  //   is 0. Thus, if we lookup index>0 in this case, we get NULL;
 	if (!radix_tree_is_indirect_ptr(node)) {
 		if (index > 0)
 			return NULL;
 
+    //Yuanguo: there is no parent node, so return NULL
 		if (nodep)
 			*nodep = NULL;
+
+    //Yuanguo: the item
 		if (slotp)
 			*slotp = (void **)&root->rnode;
 		return node;
 	}
+
+  //Yuanguo: if indirect ...
+
 	node = indirect_to_ptr(node);
 
+  //Yuanguo: node is root->rnode now, whose height is the tree height.
 	height = node->path & RADIX_TREE_HEIGHT_MASK;
+
+  //Yuanguo: index > max index current tree height may have, return NULL.
 	if (index > radix_tree_maxindex(height))
 		return NULL;
 
 	shift = (height-1) * RADIX_TREE_MAP_SHIFT;
 
+  //Yuanguo: 
+  //   index = 000011 001000 001001 b    0x030809
+  //   height = 3
+  //   shift =  12
+  // then,
+  //   A = 3-th slot of root->rnode;
+  //   B = 8-th slot of A;
+  //   C = 9-th slog of B; 
 	do {
 		parent = node;
 		slot = node->slots + ((index >> shift) & RADIX_TREE_MAP_MASK);
@@ -568,10 +589,14 @@ void *__radix_tree_lookup(struct radix_tree_root *root, unsigned long index,
 		height--;
 	} while (height > 0);
 
+  //Yuanguo: return parent of target slot;
 	if (nodep)
 		*nodep = parent;
+
+  //Yuanguo: return target slot;
 	if (slotp)
 		*slotp = slot;
+
 	return node;
 }
 

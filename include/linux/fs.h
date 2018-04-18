@@ -815,7 +815,10 @@ struct file {
 	 * Must not be taken from IRQ context.
 	 */
 	spinlock_t		f_lock;
+
+        //Yuanguo: increased when dup fd, fork ...
 	atomic_long_t		f_count;
+
 	unsigned int 		f_flags;
 	fmode_t			f_mode;
 	struct mutex		f_pos_lock;

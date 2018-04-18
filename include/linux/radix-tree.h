@@ -41,6 +41,9 @@
  * when it is shrunk, before we rcu free the node. See shrink code for
  * details.
  */
+//Yuanguo: if INDIRECT, the lowest bit of the root->rnode is set to 1
+//   DIRECT:   if root->rnode points to a data item;
+//   INDIRECT: if root->rnode points to a 'struct radix_tree_node' instead of data item;
 #define RADIX_TREE_INDIRECT_PTR		1
 /*
  * A common use of the radix tree is to store pointers to struct pages;

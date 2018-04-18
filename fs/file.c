@@ -708,7 +708,14 @@ unsigned long __fdget_pos(unsigned int fd)
 	unsigned long v = __fdget(fd);
 	struct file *file = (struct file *)(v & ~3);
 
+  //Yuanguo: FMODE_ATOMIC_POS is always set for regular file, see func do_dentry_open() 
+  //   in fs/open.c
 	if (file && (file->f_mode & FMODE_ATOMIC_POS)) {
+    //Yuanguo: if we have duplicated fd, or forked, file_count(file) > 1
+    //   When more than 1 processes (due to fork) access 1 file: 
+    //     1. no need to protect the f_pos?
+    //     2. proc-A gets 0-1K, proc-B gets 1K-2K, proc-A gets 2K-3K (the same for WRITE)... ?
+    //   How about multi threads (file_count(file) should be 1)?
 		if (file_count(file) > 1) {
 			v |= FDPUT_POS_UNLOCK;
 			mutex_lock(&file->f_pos_lock);
