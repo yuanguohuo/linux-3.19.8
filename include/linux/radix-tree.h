@@ -61,31 +61,57 @@ static inline int radix_tree_is_indirect_ptr(void *ptr)
 #define RADIX_TREE_MAX_TAGS 3
 
 #ifdef __KERNEL__
-#define RADIX_TREE_MAP_SHIFT	(CONFIG_BASE_SMALL ? 4 : 6)
+//Yuanguo: every node has 2^RADIX_TREE_MAP_SHIFT slots.
+#define RADIX_TREE_MAP_SHIFT	(CONFIG_BASE_SMALL ? 4 : 6)                //Yuanguo: 6
 #else
 #define RADIX_TREE_MAP_SHIFT	3	/* For more stressful testing */
 #endif
 
-#define RADIX_TREE_MAP_SIZE	(1UL << RADIX_TREE_MAP_SHIFT)
-#define RADIX_TREE_MAP_MASK	(RADIX_TREE_MAP_SIZE-1)
+//Yuanguo: every node has 2^RADIX_TREE_MAP_SHIFT = RADIX_TREE_MAP_SIZE slots.
+#define RADIX_TREE_MAP_SIZE	(1UL << RADIX_TREE_MAP_SHIFT)              //Yuanguo: 64
+#define RADIX_TREE_MAP_MASK	(RADIX_TREE_MAP_SIZE-1)                    //Yuanguo: 111111b
 
+//Yuanguo: every node has RADIX_TREE_MAP_SIZE slots, and 1 bit (in a bitmap) 
+//   corresponds to 1 slot. So, how many 'long's the bitmap should take?
+//   e.g.  
+//        sizeof(long) = 8
+//        BITS_PER_LONG = 64
+//        RADIX_TREE_MAP_SIZE = 64
+//   then the bitmap takes 1 long:  RADIX_TREE_TAG_LONGS = (64+64-1)/64 = 1
 #define RADIX_TREE_TAG_LONGS	\
-	((RADIX_TREE_MAP_SIZE + BITS_PER_LONG - 1) / BITS_PER_LONG)
+	((RADIX_TREE_MAP_SIZE + BITS_PER_LONG - 1) / BITS_PER_LONG)        //Yuanguo: 1
 
-#define RADIX_TREE_INDEX_BITS  (8 /* CHAR_BIT */ * sizeof(unsigned long))
+#define RADIX_TREE_INDEX_BITS  (8 /* CHAR_BIT */ * sizeof(unsigned long))  //Yuanguo: 64
 #define RADIX_TREE_MAX_PATH (DIV_ROUND_UP(RADIX_TREE_INDEX_BITS, \
-					  RADIX_TREE_MAP_SHIFT))
+					  RADIX_TREE_MAP_SHIFT))           //Yuanguo: 11
 
 /* Height component in node->path */
-#define RADIX_TREE_HEIGHT_SHIFT	(RADIX_TREE_MAX_PATH + 1)
-#define RADIX_TREE_HEIGHT_MASK	((1UL << RADIX_TREE_HEIGHT_SHIFT) - 1)
+//Yuanguo: in radix_tree_node.path, the lowest RADIX_TREE_HEIGHT_SHIFT bits are "height from the bottom/leaf"
+//   so:  height = node->path & RADIX_TREE_HEIGHT_MASK;
+#define RADIX_TREE_HEIGHT_SHIFT	(RADIX_TREE_MAX_PATH + 1)                  //Yuanguo: 12
+#define RADIX_TREE_HEIGHT_MASK	((1UL << RADIX_TREE_HEIGHT_SHIFT) - 1)     //Yuanguo: 111111111111b
 
 /* Internally used bits of node->count */
-#define RADIX_TREE_COUNT_SHIFT	(RADIX_TREE_MAP_SHIFT + 1)
-#define RADIX_TREE_COUNT_MASK	((1UL << RADIX_TREE_COUNT_SHIFT) - 1)
+//Yuanguo: a node has at most 2^RADIX_TREE_MAP_SHIFT slots, so "count of slots" takes 
+//   RADIX_TREE_COUNT_SHIFT = RADIX_TREE_MAP_SHIFT + 1 bits;
+//   e.g.
+//       RADIX_TREE_MAP_SHIFT = 6
+//       RADIX_TREE_COUNT_SHIFT = 7
+//
+//       every node has 64 slots.
+//       64 = 1000000b    // 7 bits
+#define RADIX_TREE_COUNT_SHIFT	(RADIX_TREE_MAP_SHIFT + 1)                 //Yuanguo: 7
+#define RADIX_TREE_COUNT_MASK	((1UL << RADIX_TREE_COUNT_SHIFT) - 1)      //Yuanguo: 1111111b
 
 struct radix_tree_node {
+        //Yuanguo:  
+        //   the highest 32-RADIX_TREE_HEIGHT_SHIFT bits are "offset in parent"
+        //   the lowest RADIX_TREE_HEIGHT_SHIFT bits are "height from the bottom"
+        //   see RADIX_TREE_HEIGHT_SHIFT and RADIX_TREE_HEIGHT_MASK
 	unsigned int	path;	/* Offset in parent & height from the bottom */
+
+        //Yuanguo: the lowest RADIX_TREE_COUNT_SHIFT bits are "count of slots"
+        //         what are high bits?
 	unsigned int	count;
 	union {
 		struct {
@@ -100,6 +126,9 @@ struct radix_tree_node {
 	/* For tree user */
 	struct list_head private_list;
 	void __rcu	*slots[RADIX_TREE_MAP_SIZE];
+
+        //Yuanguo: I said that every slot takes 1 bit in bitmap (see RADIX_TREE_TAG_LONGS above),
+        //   but that's not true, in fact every slot takes RADIX_TREE_MAX_TAGS bits
 	unsigned long	tags[RADIX_TREE_MAX_TAGS][RADIX_TREE_TAG_LONGS];
 };
 
