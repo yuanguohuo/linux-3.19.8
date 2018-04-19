@@ -507,6 +507,11 @@ static int page_cache_tree_insert(struct address_space *mapping,
 	void **slot;
 	int error;
 
+  //Yuanguo: make sure the right node (where to insert 'page') exists, by
+  //   1. extending the tree (insert node at root to make tree higher)
+  // and/or
+  //   2. inserting nodes on the path from the root to the right node;
+  //the returned 'slot' is the place for 'page';
 	error = __radix_tree_create(&mapping->page_tree, page->index,
 				    &node, &slot);
 	if (error)
@@ -523,8 +528,13 @@ static int page_cache_tree_insert(struct address_space *mapping,
 		if (node)
 			workingset_node_shadows_dec(node);
 	}
+
+  //Yuanguo: place 'page' at 'slot';
 	radix_tree_replace_slot(slot, page);
+
+  //Yuanguo: the address_space has 1 more page now ...
 	mapping->nrpages++;
+
 	if (node) {
 		workingset_node_pages_inc(node);
 		/*
@@ -561,6 +571,11 @@ static int __add_to_page_cache_locked(struct page *page,
 			return error;
 	}
 
+  //Yuanguo: 
+  //   1. disable kernel preemption
+  //   2. fill the per-CPU variable radix_tree_preloads with a few free
+  //      'struct radix_tree_node' objects; these objects are allocated from
+  //      slab radix_tree_node_cachep
 	error = radix_tree_maybe_preload(gfp_mask & ~__GFP_HIGHMEM);
 	if (error) {
 		if (!huge)
@@ -568,13 +583,20 @@ static int __add_to_page_cache_locked(struct page *page,
 		return error;
 	}
 
+  //Yuanguo: inc page->_count
 	page_cache_get(page);
+  
 	page->mapping = mapping;
 	page->index = offset;
 
 	spin_lock_irq(&mapping->tree_lock);
+
+  //Yuanguo: insert into the radix tree
 	error = page_cache_tree_insert(mapping, page, shadowp);
+
+  //Yuanguo: enable kernel preemption
 	radix_tree_preload_end();
+
 	if (unlikely(error))
 		goto err_insert;
 	__inc_zone_page_state(page, NR_FILE_PAGES);
@@ -617,9 +639,15 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 	void *shadow = NULL;
 	int ret;
 
+  //Yuanguo: because the page is new, its content is invalid, so set PG_locked
+  //  flag to protect the page against concurrent accesses from other kernel
+  //  control paths;
 	__set_page_locked(page);
+
+  //Yuanguo: add page to page cache
 	ret = __add_to_page_cache_locked(page, mapping, offset,
 					 gfp_mask, &shadow);
+
 	if (unlikely(ret))
 		__clear_page_locked(page);
 	else {
@@ -633,6 +661,8 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 			workingset_activation(page);
 		} else
 			ClearPageActive(page);
+
+    //Yuanguo: insert the page in the zone's [in]active [file|anon] LRU list????
 		lru_cache_add(page);
 	}
 	return ret;
@@ -970,12 +1000,19 @@ struct page *find_get_entry(struct address_space *mapping, pgoff_t offset)
 	rcu_read_lock();
 repeat:
 	page = NULL;
+  //Yuanguo: actual lookup
 	pagep = radix_tree_lookup_slot(&mapping->page_tree, offset);
 	if (pagep) {
+    //Yuanguo: dereference page* from page**
 		page = radix_tree_deref_slot(pagep);
+
+    //Yuanguo: page is NULL, return NULL;
 		if (unlikely(!page))
 			goto out;
+
+    //Yuanguo: the radix_tree_deref_slot above returned exception
 		if (radix_tree_exception(page)) {
+      //Yuanguo: the radix_tree_deref_slot returned an exception, for which if retry is required?
 			if (radix_tree_deref_retry(page))
 				goto repeat;
 			/*
@@ -985,6 +1022,8 @@ repeat:
 			 */
 			goto out;
 		}
+
+    //Yuanguo: inc page->_count? seems complicated due to RCU ...
 		if (!page_cache_get_speculative(page))
 			goto repeat;
 
@@ -1071,12 +1110,17 @@ struct page *pagecache_get_page(struct address_space *mapping, pgoff_t offset,
 
 repeat:
 	page = find_get_entry(mapping, offset);
+
+  //Yuanguo: find_get_entry returned exception
 	if (radix_tree_exceptional_entry(page))
 		page = NULL;
+
 	if (!page)
 		goto no_page;
 
+  //Yuanguo: we need to return the page that's locked
 	if (fgp_flags & FGP_LOCK) {
+    //Yuanguo: but we cannot wait, so just try to lock and return NULL if fail 
 		if (fgp_flags & FGP_NOWAIT) {
 			if (!trylock_page(page)) {
 				page_cache_release(page);
@@ -1095,10 +1139,12 @@ repeat:
 		VM_BUG_ON_PAGE(page->index != offset, page);
 	}
 
+  //Yuanguo: we need to return the page that's marked acceessed.
 	if (page && (fgp_flags & FGP_ACCESSED))
 		mark_page_accessed(page);
 
 no_page:
+  //Yuanguo: if no page found AND we should create, then do create work ...
 	if (!page && (fgp_flags & FGP_CREAT)) {
 		int err;
 		if ((fgp_flags & FGP_WRITE) && mapping_cap_account_dirty(mapping))
@@ -1106,6 +1152,7 @@ no_page:
 		if (fgp_flags & FGP_NOFS)
 			gfp_mask &= ~__GFP_FS;
 
+    //Yuanguo: alloc a page from buddy system
 		page = __page_cache_alloc(gfp_mask);
 		if (!page)
 			return NULL;
@@ -1117,8 +1164,10 @@ no_page:
 		if (fgp_flags & FGP_ACCESSED)
 			__SetPageReferenced(page);
 
+    //Yuanguo: add to page cache
 		err = add_to_page_cache_lru(page, mapping, offset,
 				gfp_mask & GFP_RECLAIM_MASK);
+
 		if (unlikely(err)) {
 			page_cache_release(page);
 			page = NULL;

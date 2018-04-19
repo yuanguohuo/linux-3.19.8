@@ -176,6 +176,10 @@ radix_tree_find_next_bit(const unsigned long *addr,
  * This assumes that the caller has performed appropriate preallocation, and
  * that the caller has pinned this thread of control to the current CPU.
  */
+//Yuanguo: 
+//  1. try to alloc from per-CPU variable radix_tree_preloads (remember
+//     that we did preload work in function __add_to_page_cache_locked())
+//  2. if 1 failed, then try to alloc from slab radix_tree_node_cachep;
 static struct radix_tree_node *
 radix_tree_node_alloc(struct radix_tree_root *root)
 {
@@ -187,6 +191,11 @@ radix_tree_node_alloc(struct radix_tree_root *root)
 	 * preloading in the interrupt anyway as all the allocations have to
 	 * be atomic. So just do normal allocation when in interrupt.
 	 */
+  //Yuanguo: in interrupt, don't preload. So, in interrupt, don't try
+  //    to alloc 'struct radix_tree_node' from the per-CPU variable 
+  //    radix_tree_preloads. Same to __GFP_WAIT.
+  // Thus, try to alloc from radix_tree_preloads only when no __GFP_WAIT 
+  // or in interrupt.
 	if (!(gfp_mask & __GFP_WAIT) && !in_interrupt()) {
 		struct radix_tree_preload *rtp;
 
@@ -547,11 +556,11 @@ void *__radix_tree_lookup(struct radix_tree_root *root, unsigned long index,
 		if (index > 0)
 			return NULL;
 
-    //Yuanguo: there is no parent node, so return NULL
+    //Yuanguo: the only data item has no parent node, so return NULL
 		if (nodep)
 			*nodep = NULL;
 
-    //Yuanguo: the item
+    //Yuanguo: the only data item
 		if (slotp)
 			*slotp = (void **)&root->rnode;
 		return node;
@@ -577,7 +586,7 @@ void *__radix_tree_lookup(struct radix_tree_root *root, unsigned long index,
   // then,
   //   A = 3-th slot of root->rnode;
   //   B = 8-th slot of A;
-  //   C = 9-th slog of B; 
+  //   C = 9-th slot of B; 
 	do {
 		parent = node;
 		slot = node->slots + ((index >> shift) & RADIX_TREE_MAP_MASK);
