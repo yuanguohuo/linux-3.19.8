@@ -59,21 +59,31 @@ typedef void (bh_end_io_t)(struct buffer_head *bh, int uptodate);
  * a page (via a page_mapping) and for wrapping bio submission
  * for backward compatibility reasons (e.g. submit_bh).
  */
+//Yuanguo: map between memory and disk.
+//    b_page and b_data:     where is the data in memory;
+//    b_bdev and b_blocknr:  where is the data in disk;
 struct buffer_head {
 	unsigned long b_state;		/* buffer state bitmap (see above) */
 
-  //Yuanguo: a page has many buffer_head's, b_this_page links them together;
+        //Yuanguo: a page has many buffer_head's, b_this_page links them together;
 	struct buffer_head *b_this_page;/* circular list of page's buffers */
 
+        //Yuanguo: the page that stores the data, pointed to by b_data
 	struct page *b_page;		/* the page this bh is mapped to */
 
+        //Yuanguo: the logical block number, that is, the index of the block 
+        //   inside its disk or partition
 	sector_t b_blocknr;		/* start block number */
 	size_t b_size;			/* size of mapping */
+
+        //Yuanguo: the data in page 'b_page'
 	char *b_data;			/* pointer to data within the page */
 
 	struct block_device *b_bdev;
+
 	bh_end_io_t *b_end_io;		/* I/O completion */
  	void *b_private;		/* reserved for b_end_io */
+
 	struct list_head b_assoc_buffers; /* associated with another mapping */
 	struct address_space *b_assoc_map;	/* mapping this buffer is
 						   associated with */

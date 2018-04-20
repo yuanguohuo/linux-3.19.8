@@ -74,13 +74,15 @@ static inline int radix_tree_is_indirect_ptr(void *ptr)
 #define RADIX_TREE_MAP_SIZE	(1UL << RADIX_TREE_MAP_SHIFT)              //Yuanguo: 64
 #define RADIX_TREE_MAP_MASK	(RADIX_TREE_MAP_SIZE-1)                    //Yuanguo: 111111b
 
-//Yuanguo: every node has RADIX_TREE_MAP_SIZE slots, and 1 bit (in a bitmap) 
-//   corresponds to 1 slot. So, how many 'long's the bitmap should take?
+//Yuanguo: every node has RADIX_TREE_MAP_SIZE slots. In one bitmap, 1 bit
+//   corresponds to 1 slot. So, how many 'long' the bitmap should take?
 //   e.g.  
-//        sizeof(long) = 8
-//        BITS_PER_LONG = 64
+//        BITS_PER_LONG = sizeof(long)*8 = 64
 //        RADIX_TREE_MAP_SIZE = 64
 //   then the bitmap takes 1 long:  RADIX_TREE_TAG_LONGS = (64+64-1)/64 = 1
+//
+//   Actually, we have 3 (RADIX_TREE_MAX_TAGS) such bitmaps, see field 'tags' in 
+//   struct radix_tree_node
 #define RADIX_TREE_TAG_LONGS	\
 	((RADIX_TREE_MAP_SIZE + BITS_PER_LONG - 1) / BITS_PER_LONG)        //Yuanguo: 1
 
@@ -130,8 +132,10 @@ struct radix_tree_node {
 	struct list_head private_list;
 	void __rcu	*slots[RADIX_TREE_MAP_SIZE];
 
-        //Yuanguo: I said that every slot takes 1 bit in bitmap (see RADIX_TREE_TAG_LONGS above),
-        //   but that's not true, in fact every slot takes RADIX_TREE_MAX_TAGS bits
+        //Yuanguo: a node has 3 (RADIX_TREE_MAX_TAGS) bitmaps for its slots:
+        //   tag[0]: DIRTY      bitmap, see PAGECACHE_TAG_DIRTY
+        //   tag[1]: WRITEBACK  bitmap, see PAGECACHE_TAG_WRITEBACK
+        //   tag[2]: TOWRITE    bitmap, see PAGECACHE_TAG_TOWRITE
 	unsigned long	tags[RADIX_TREE_MAX_TAGS][RADIX_TREE_TAG_LONGS];
 };
 
