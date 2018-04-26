@@ -735,6 +735,21 @@ static int __bio_add_page(struct request_queue *q, struct bio *bio, struct page
 	 * we will often be called with the same page as last time and
 	 * a consecutive offset.  Optimize this special case.
 	 */
+  //Yuanguo:  merge into the previouse bio_vec in 'bio'
+  //    for example, pagesize=4KB, blocksize=1KB, 
+  //    prev = 
+  //        {
+  //           .page      = {page-xxx},
+  //           .bv_len    = 2048,
+  //           .bv_offset = 1024,
+  //        }
+  //
+  //    page = {page-xxx},
+  //    offset = 3072,
+  //    len = 1024,
+  //
+  //    If blocksize == pagesize, 1 page contains only 1 block, this kind
+  //    of merge can never happen.
 	if (bio->bi_vcnt > 0) {
 		struct bio_vec *prev = &bio->bi_io_vec[bio->bi_vcnt - 1];
 

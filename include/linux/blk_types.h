@@ -45,13 +45,13 @@ struct bvec_iter {
  */
 struct bio {
   //Yuanguo: bi_next is used in the following 2 places:
-  //    1. current->bio_list in function generic_make_request() uses bi_next 
-  //       to link bio objects in recursion;
-  //    2. one 'struct request' may have many 'struct bio' objects, bi_next
-  //       links them together. And 
-  //           struct bio *bio;
-  //           struct bio *biotail;
-  //       in 'struct request' point to the head and tail respectively.
+  //  1. one 'struct request' may have many 'struct bio' objects, bi_next
+  //     links them together. And 
+  //         struct bio *bio;
+  //         struct bio *biotail;
+  //     in 'struct request' point to the head and tail respectively.
+  //  2. current->bio_list in function generic_make_request() uses bi_next 
+  //     to link bio objects in recursion;
 	struct bio		*bi_next;	/* request queue link */
 
 	struct block_device	*bi_bdev;
@@ -65,7 +65,15 @@ struct bio {
 	/* Number of segments in this BIO after
 	 * physical address coalescing is performed.
 	 */
-  //Yuanguo: one 'struct bio' may have many segments;
+  //Yuanguo: how many physical segments does this 'struct bio' have?
+  //    the generic block layer can merge different segments if 
+  //        1. the corresponding page frames happen to be contiguous in RAM,
+  //    and 
+  //        2. the corresponding chunks of disk data are adjacent on disk.
+  //    The larger memory area resulting from this merge operation is called 
+  //    physical segment.
+  //
+  //    See blk_recount_segments() --> __blk_recalc_rq_segments()
 	unsigned int		bi_phys_segments;
 
 	/*
