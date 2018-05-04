@@ -1160,6 +1160,7 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
   //for ramfs:  ramfs_mount()
   //for rootfs: rootfs_mount()
   //for fuse: fuse_mount()
+  //for bdev: bd_mount()
  
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {

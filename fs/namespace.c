@@ -960,7 +960,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	mnt->mnt.mnt_sb = root->d_sb;
   
   //Yuanguo: mnt_parent and mnt_mountpoint ("who is my parent") are set to itself and its root
-  //         temporarily. they will be set to its real parent and real mountpoint 
+  //         temporarily here. they will be set to its real parent and real mountpoint 
   //         later:   do_new_mount  -->
   //                  do_add_mount  -->
   //                  graft_tree    -->
@@ -970,8 +970,8 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 	mnt->mnt_parent = mnt;
 
   //Yuanguo: one device can be mounted multiple times, thus the superblock of
-  //the device may have multiple struct mount objs. d_sb->s_mounts is the head 
-  //of the struct mount obj list, and mnt_instance links the objs together.
+  //the device may have multiple 'struct mount' objs. d_sb->s_mounts is the head 
+  //of the 'struct mount' obj list, and mnt_instance links the objs together.
 	lock_mount_hash();
 	list_add_tail(&mnt->mnt_instance, &root->d_sb->s_mounts);
 	unlock_mount_hash();

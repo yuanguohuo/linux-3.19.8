@@ -678,15 +678,15 @@ static struct block_device *bd_acquire(struct inode *inode)
       //Yuanguo:                      struct bdev_inode
       //   inode->i_bdev ------>  +========================+
       // the inode in devtmpfs    |  struct block_device   |
-      // corresponding to path    +------------------------+
-      // (such as /dev/sdb)       |   the block device     |
+      // corresponding to path    |                        |
+      // (such as /dev/sdb)       |  (the block device)    |
       //                          |                        |
       //                          |                        |
       //                          +========================+
       //                          |     struct inode       |
-      //                          +------------------------+
-      //                          |   the inode in         |
-      //                          |     bdev fs            |
+      //                          |                        |
+      //                          | (the inode in bdev fs) |
+      //                          |                        |
       //                          |                        |
       //                          +========================+
 			inode->i_bdev = bdev;
@@ -1173,6 +1173,9 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
  restart:
 
 	ret = -ENXIO;
+
+  //Yuanguo: if bdev is a partition, partno will be set to the part#;
+  //         else, partno will be set to 0;
 	disk = get_gendisk(bdev->bd_dev, &partno);
 	if (!disk)
 		goto out;
@@ -1180,11 +1183,12 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 
 	disk_block_events(disk);
 	mutex_lock_nested(&bdev->bd_mutex, for_part);
-	if (!bdev->bd_openers) {
+
+	if (!bdev->bd_openers) {  //Yuanguo: bdev is not opened, it's being accessed for the 1st time; 
 		bdev->bd_disk = disk;
 		bdev->bd_queue = disk->queue;
 		bdev->bd_contains = bdev;
-		if (!partno) {
+		if (!partno) {  //Yuanguo: bdev is a whole disk;
 			struct backing_dev_info *bdi;
 
 			ret = -ENXIO;
@@ -1232,7 +1236,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			}
 			if (ret)
 				goto out_clear;
-		} else {
+		} else {  //Yuanguo: bdev is a partition;
 			struct block_device *whole;
 			whole = bdget_disk(disk, 0);
 			ret = -ENOMEM;
@@ -1253,7 +1257,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			}
 			bd_set_size(bdev, (loff_t)bdev->bd_part->nr_sects << 9);
 		}
-	} else {
+	} else {  //Yuanguo: bdev has already been opened;
+    //Yuanguo: bdev is a whole disk;
 		if (bdev->bd_contains == bdev) {
 			ret = 0;
 			if (bdev->bd_disk->fops->open)

@@ -678,6 +678,8 @@ EXPORT_SYMBOL(del_gendisk);
  * This function gets the structure containing partitioning
  * information for the given device @devt.
  */
+//Yuanguo: if devt is a partition, partno will be set to the part#;
+//         else, partno will be set to 0;
 struct gendisk *get_gendisk(dev_t devt, int *partno)
 {
 	struct gendisk *disk = NULL;
