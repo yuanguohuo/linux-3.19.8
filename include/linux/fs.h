@@ -435,9 +435,22 @@ struct block_device {
 #ifdef CONFIG_SYSFS
 	struct list_head	bd_holder_disks;
 #endif
+
+        //Yuanguo: 
+        //   if this 'struct block_device' is a whole disk, then
+        //        bd_contains == this (in c++)
+        //   else, this 'struct block_device' is a partition, then
+        //        bd_contains == 'struct block_device' of the containing disk
 	struct block_device *	bd_contains;
+
 	unsigned		bd_block_size;
+
+        //Yuanguo:
+        //   if this 'struct block_device' is a partition, bd_part tell us 
+        //   the start-sector (start_sect) of the partition in the containing 
+        //   disk, partition-size (nr_sects), and etc.
 	struct hd_struct *	bd_part;
+
 	/* number of times partitions within this device have been opened. */
 	unsigned		bd_part_count;
 	int			bd_invalidated;

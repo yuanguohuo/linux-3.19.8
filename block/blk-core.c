@@ -1722,10 +1722,19 @@ static inline void blk_partition_remap(struct bio *bio)
 {
 	struct block_device *bdev = bio->bi_bdev;
 
+  //Yuanguo:
+  //    if bdev != bdev->bd_contains, then bdev is a partition, and
+  //          bdev->bd_contains is the disk containing the partition;
+  //    else,  bdev is a whole disk;
 	if (bio_sectors(bio) && bdev != bdev->bd_contains) {
 		struct hd_struct *p = bdev->bd_part;
 
+    //Yuanguo: bi_iter.bi_sector was the sector# in the partition, now
+    //   change it to the sector# in the whole disk;
 		bio->bi_iter.bi_sector += p->start_sect;
+
+    //Yuanguo: make the bio reference to the whole disk instead of 
+    //   the partition;
 		bio->bi_bdev = bdev->bd_contains;
 
 		trace_block_bio_remap(bdev_get_queue(bio->bi_bdev), bio,
@@ -1932,6 +1941,15 @@ void generic_make_request(struct bio *bio)
 {
 	struct bio_list bio_list_on_stack;
 
+  //Yuanguo: 
+  //   1. do some check work;
+  //   2. if bio->bi_bdev points to a partition, instead of a whole disk,
+  //      make it point to the containing disk (bio->bi_bdev->bd_contains); 
+  //      see function blk_partition_remap();
+  //
+  //   from now on, the generic block layer, the I/O scheduler, and the device
+  //   driver forget about disk partitioning, and work directly with the whole 
+  //   disk.
 	if (!generic_make_request_checks(bio))
 		return;
 
