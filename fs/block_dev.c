@@ -615,7 +615,14 @@ struct block_device *bdget(dev_t dev)
     //                     |  +--------------------------------+  |
     //                     +--------------------------------------+
 
+    //Yuanguo: if bdev is a whole disk, bdev->bd_contains == bdev
+    //         if bdev is a partition,  bdev->bd_contains == containing whole disk
+    //   here, just set it to NULL temporarily, it will be set again in 
+    //                  blkdev_open  -->
+    //                  blkdev_get   -->
+    //                  __blkdev_get 
 		bdev->bd_contains = NULL;
+
 		bdev->bd_super = NULL;
 		bdev->bd_inode = inode;
 		bdev->bd_block_size = (1 << inode->i_blkbits);
@@ -626,7 +633,15 @@ struct block_device *bdget(dev_t dev)
 		inode->i_bdev = bdev;
 		inode->i_data.a_ops = &def_blk_aops;
 		mapping_set_gfp_mask(&inode->i_data, GFP_USER);
+
+    //Yuanguo: set it to default_backing_dev_info temporarily, it will be set
+    //         correctly in   
+    //                  blkdev_open  -->
+    //                  blkdev_get   -->
+    //                  __blkdev_get -->
+    //                  bdev_inode_switch_bdi
 		inode->i_data.backing_dev_info = &default_backing_dev_info;
+
 		spin_lock(&bdev_lock);
 		list_add(&bdev->bd_list, &all_bdevs);
 		spin_unlock(&bdev_lock);
@@ -734,7 +749,7 @@ static struct block_device *bd_acquire(struct inode *inode)
       //                       |  |  +-------------------------+   |  |
       //                       |  |  |                         |   |  |
       //                       |  |  |     a_ops --------------+---+--+---->def_blk_aops
-      //                       |  |  |     backing_dev_info ---+---+--+---->default_backing_dev_info
+      //                       |  |  |     backing_dev_info    |   |  |
       //                       |  |  |                         |   |  |
       //                       |  |  +-------------------------+   |  |
       //                       |  |                                |  |
@@ -1462,6 +1477,21 @@ EXPORT_SYMBOL(blkdev_get);
  * RETURNS:
  * Pointer to block_device on success, ERR_PTR(-errno) on failure.
  */
+//Yuanguo:  
+//   the 3 functions are similar with one another (the goals are the same:
+//   return an open block device, but the input are different):
+//
+//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
+//                                   see lookup_bdev() --> kern_path()
+//                                2. bdev = bd_acquire(inode-in-devtmpfs);
+//                                   see lookup_bdev() --> bd_acquire()
+//                                3. blkdev_get(bdev)
+//
+//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
 struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 					void *holder)
 {
@@ -1526,6 +1556,21 @@ EXPORT_SYMBOL(blkdev_get_by_path);
  * RETURNS:
  * Pointer to block_device on success, ERR_PTR(-errno) on failure.
  */
+//Yuanguo:  
+//   the 3 functions are similar with one another (the goals are the same:
+//   return an open block device, but the input are different):
+//
+//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
+//                                   see lookup_bdev() --> kern_path()
+//                                2. bdev = bd_acquire(inode-in-devtmpfs);
+//                                   see lookup_bdev() --> bd_acquire()
+//                                3. blkdev_get(bdev)
+//
+//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
 struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
 {
 	struct block_device *bdev;
@@ -1543,6 +1588,22 @@ struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
 }
 EXPORT_SYMBOL(blkdev_get_by_dev);
 
+
+//Yuanguo:  
+//   the 3 functions are similar with one another (the goals are the same:
+//   return an open block device, but the input are different):
+//
+//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
+//                                   see lookup_bdev() --> kern_path()
+//                                2. bdev = bd_acquire(inode-in-devtmpfs);
+//                                   see lookup_bdev() --> bd_acquire()
+//                                3. blkdev_get(bdev)
+//
+//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
 static int blkdev_open(struct inode * inode, struct file * filp)
 {
 	struct block_device *bdev;
