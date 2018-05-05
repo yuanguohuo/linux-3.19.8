@@ -582,6 +582,39 @@ struct block_device *bdget(dev_t dev)
 	bdev = &BDEV_I(inode)->bdev;
 
 	if (inode->i_state & I_NEW) {
+    //Yuanguo:
+    //                              struct bdev_inode   
+    // BDEV_I(inode)-----> +======================================+
+    //                     |       struct block_device bdev;      |
+    //                     |  +--------------------------------+ <----------+
+    //                     |  |                                |  |         |
+    //     all_bdevs ...---+--+------------bd_list ------------+--+---...   |
+    //                     |  |            bd_inode  ------+   |  |         |
+    //                     |  |                            |   |  |         |
+    //                     |  |                            |   |  |         |
+    //                     |  |                            |   |  |         |
+    //                     |  +----------------------------+---+  |         |
+    //                     |                               |      |         |
+    //                     |      struct inode vfs_inode;  v      |         |
+    // inode---------------+> +--------------------------------+  |         |
+    //                     |  |                                |  |         |
+    //                     |  |                                |  |         |
+    //                     |  | struct block_device *i_bdev ---+--+---------+
+    //                     |  |                                |  |
+    //                     |  |                                |  |
+    //                     |  |  struct address_space i_data   |  |
+    //                     |  |  +-------------------------+   |  |
+    //                     |  |  |                         |   |  |
+    //                     |  |  |     a_ops --------------+---+--+---->def_blk_aops
+    //                     |  |  |     backing_dev_info ---+---+--+---->default_backing_dev_info
+    //                     |  |  |                         |   |  |
+    //                     |  |  +-------------------------+   |  |
+    //                     |  |                                |  |
+    //                     |  |                                |  |
+    //                     |  |                                |  |
+    //                     |  +--------------------------------+  |
+    //                     +--------------------------------------+
+
 		bdev->bd_contains = NULL;
 		bdev->bd_super = NULL;
 		bdev->bd_inode = inode;
@@ -644,7 +677,7 @@ static struct block_device *bd_acquire(struct inode *inode)
 {
 	struct block_device *bdev;
 
-  //Yuanguo: the inode here stands for the device file in devtmpfs; e.g.
+  //Yuanguo: the inode here stands for the device file in devtmpfs (/dev); e.g.
   //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
   //         in function bdget, we will get another 'inode',  that inode
   //         stands for a file in bdev fs (whose super block is blockdev_superblock);
@@ -675,20 +708,41 @@ static struct block_device *bd_acquire(struct inode *inode)
 			 */
 			ihold(bdev->bd_inode);
 
-      //Yuanguo:                      struct bdev_inode
-      //   inode->i_bdev ------>  +========================+
-      // the inode in devtmpfs    |  struct block_device   |
-      // corresponding to path    |                        |
-      // (such as /dev/sdb)       |  (the block device)    |
-      //                          |                        |
-      //                          |                        |
-      //                          +========================+
-      //                          |     struct inode       |
-      //                          |                        |
-      //                          | (the inode in bdev fs) |
-      //                          |                        |
-      //                          |                        |
-      //                          +========================+
+
+      //Yuanguo:
+      //                                 struct bdev_inode   
+      //                       +======================================+
+      //                       |       struct block_device bdev;      |
+      // inode->i_bdev-------> |  +--------------------------------+ <----------+
+      //the inode in devtmpfs  |  |                                |  |         |
+      //corresponding to path  |  |            bd_list             |  |         |
+      //(such as /dev/sdb)     |  |            bd_inode  ------+   |  |         |
+      //                       |  |                            |   |  |         |
+      //                       |  |                            |   |  |         |
+      //                       |  |                            |   |  |         |
+      //                       |  +----------------------------+---+  |         |
+      //                       |                               |      |         |
+      //                       |      struct inode vfs_inode;  |      |         |
+      //                       |      (the inode in bdev fs)   v      |         |
+      //                       |  +--------------------------------+  |         |
+      //                       |  |                                |  |         |
+      //                       |  |                                |  |         |
+      //                       |  | struct block_device *i_bdev ---+--+---------+
+      //                       |  |                                |  |
+      //                       |  |                                |  |
+      //                       |  |  struct address_space i_data   |  |
+      //                       |  |  +-------------------------+   |  |
+      //                       |  |  |                         |   |  |
+      //                       |  |  |     a_ops --------------+---+--+---->def_blk_aops
+      //                       |  |  |     backing_dev_info ---+---+--+---->default_backing_dev_info
+      //                       |  |  |                         |   |  |
+      //                       |  |  +-------------------------+   |  |
+      //                       |  |                                |  |
+      //                       |  |                                |  |
+      //                       |  |                                |  |
+      //                       |  +--------------------------------+  |
+      //                       +--------------------------------------+
+
 			inode->i_bdev = bdev;
 			inode->i_mapping = bdev->bd_inode->i_mapping;
 			list_add(&inode->i_devices, &bdev->bd_inodes);
