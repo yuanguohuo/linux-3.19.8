@@ -1256,6 +1256,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 	if (!bdev->bd_openers) {  //Yuanguo: bdev is not opened, it's being accessed for the 1st time; 
 		bdev->bd_disk = disk;
 		bdev->bd_queue = disk->queue;
+
+    //Yuanguo: for a whole disk, bd_contains points to the bdev itself; 
 		bdev->bd_contains = bdev;
 		if (!partno) {  //Yuanguo: bdev is a whole disk;
 			struct backing_dev_info *bdi;
@@ -1266,6 +1268,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 				goto out_clear;
 
 			ret = 0;
+
+      //Yuanguo: for scsi disk, disk->fops->open is drivers/scsi/sd.c : sd_open ?
 			if (disk->fops->open) {
 				ret = disk->fops->open(bdev, mode);
 				if (ret == -ERESTARTSYS) {
@@ -1315,9 +1319,16 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			ret = __blkdev_get(whole, mode, 1);
 			if (ret)
 				goto out_clear;
+
+      //Yuanguo: for a partition, bd_contains points to the whole disk
+      //    containing the partition;
 			bdev->bd_contains = whole;
+
+      //Yuanguo:  for a partition, bd_inode->i_data.backing_dev_info points to
+      //    whole disk's bd_inode->i_data.backing_dev_info;
 			bdev_inode_switch_bdi(bdev->bd_inode,
 				whole->bd_inode->i_data.backing_dev_info);
+
 			bdev->bd_part = disk_get_part(disk, partno);
 			if (!(disk->flags & GENHD_FL_UP) ||
 			    !bdev->bd_part || !bdev->bd_part->nr_sects) {
@@ -1330,6 +1341,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
     //Yuanguo: bdev is a whole disk;
 		if (bdev->bd_contains == bdev) {
 			ret = 0;
+
+      //Yuanguo: for scsi disk, disk->fops->open is drivers/scsi/sd.c : sd_open ?
 			if (bdev->bd_disk->fops->open)
 				ret = bdev->bd_disk->fops->open(bdev, mode);
 			/* the same as first opener case, read comment there */

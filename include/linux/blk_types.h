@@ -20,6 +20,7 @@ typedef void (bio_destructor_t) (struct bio *);
 /*
  * was unsigned short, but we might as well be ready for > 64kB I/O pages
  */
+//Yuanguo: segment
 struct bio_vec {
 	struct page	*bv_page;
 	unsigned int	bv_len;
@@ -29,8 +30,11 @@ struct bio_vec {
 #ifdef CONFIG_BLOCK
 
 struct bvec_iter {
+  //Yuanguo: bi_sector is the first sector on disk of block 
+  //   I/O operation 
 	sector_t		bi_sector;	/* device address in 512 byte
 						   sectors */
+
 	unsigned int		bi_size;	/* residual I/O count */
 
 	unsigned int		bi_idx;		/* current index into bvl_vec */
@@ -43,6 +47,48 @@ struct bvec_iter {
  * main unit of I/O for the block layer and lower layers (ie drivers and
  * stacking drivers)
  */
+//Yuanguo:
+//    assume that 
+//          block-size = segment-size = page-size = 4KB, 
+//    thus, 
+//          a segment is an entire page;
+//          a block is an entire segment;
+//
+//
+//
+//                                                 |        |               |        |
+//                   +----------------+            |        |               |        |
+//                   | struct bio_vec |----------->|========|------------+  |        |
+//                   +----------------+            |        |            |  |        |
+//                   ......                 +----->|========|---------+  |  |        |
+//                   +----------------+     |      |        |         |  |  |        |
+//                 3 | struct bio_vec |-----+      |        |         |  |  |        |
+//                   +----------------+            |        |         |  |  |        |
+//                 2 | struct bio_vec |----+       |        |         |  +->|========|
+//                   +----------------+    +-----> |========|------+  +---->|========|
+//                 1 | struct bio_vec | ---------->|========|---+  +------->|========|
+//                   +----------------+            |        |   +---------->|========|
+//                 0 | struct bio_vec | ----+      |        |    +--------->|========| <-------+
+//   bi_io_vec --->  +----------------+     |      |        |    |          |        |         |
+//                                          |      |        |    |          |        |         |
+//                                          +----->|========|----+          |        |         |
+//                                                 |        |               |        |         |
+//                                                 |        |               |        |         |
+//                                                 |        |               |        |         |
+//                                       a page -->|        |    a block -->|        |         |
+//                                                 |        |               |        |         |
+//                                                   memroy                    disk            |
+//                                                                                             |
+//                                                                              bi_iter.bi_sector
+//
+//
+//   1. a 'struct bio' contains 1 or more 'struct bio_vec';
+//   2. a 'struct bio_vec' is a segment;
+//   3. segments are NOT contiguous in RAM but contigous in disk. That is to say, a 'struct bio' 
+//      depicts an IO on a contigous range of disk, but RAM segments are scattered/gathered.
+//   4. segment bi_io_vec[1] and bi_io_vec[2] can be merged into a 'physical segment', because 
+//      they are contiguous in RAM (and contigouse on disk);
+//
 struct bio {
   //Yuanguo: bi_next is used in the following 2 places:
   //  1. one 'struct request' may have many 'struct bio' objects, bi_next
