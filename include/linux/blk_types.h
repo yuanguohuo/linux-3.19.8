@@ -48,6 +48,14 @@ struct bvec_iter {
  * stacking drivers)
  */
 //Yuanguo:
+//    a block is within a segment; 
+//    a segment is within a page: 
+//    that's to say: block-size <= segment-size <= page-size
+//
+//    so, a segment:
+//          may be a part of a page (only when block-size < page-size);
+//          may be an entire page; 
+//
 //    assume that 
 //          block-size = segment-size = page-size = 4KB, 
 //    thus, 
@@ -82,13 +90,19 @@ struct bvec_iter {
 //                                                                              bi_iter.bi_sector
 //
 //
-//   1. a 'struct bio' contains 1 or more 'struct bio_vec';
-//   2. a 'struct bio_vec' is a segment;
-//   3. segments are NOT contiguous in RAM but contigous in disk. That is to say, a 'struct bio' 
-//      depicts an IO on a contigous range of disk, but RAM segments are scattered/gathered.
-//   4. segment bi_io_vec[1] and bi_io_vec[2] can be merged into a 'physical segment', because 
-//      they are contiguous in RAM (and contigouse on disk);
+//   1. a 'struct bio' contains 1 or more segments (struct bio_vec);
+//   2. segments may be NOT contiguous in RAM but contigous in disk. That is to say, a 
+//      'struct bio' depicts an IO on a contigous range of disk, but RAM segments are 
+//      scattered/gathered.
+//   3. segments that are contigous in RAM can be merged into a 'physical segment', such 
+//      as segment bi_io_vec[1] and bi_io_vec[2];
 //
+//   A 'struct bio' can be extened by adding a new segment to it, see bio_add_page():
+//      a. the new segment might be merged into prev segment, this can take place only
+//         when block-size < page-size, so segment-size < page-size is possible,
+//         so such a merge is possible (because a segment is within a page)
+//      b. a brand new 'struct bio_vec' is added to the bio;
+
 struct bio {
   //Yuanguo: bi_next is used in the following 2 places:
   //  1. one 'struct request' may have many 'struct bio' objects, bi_next

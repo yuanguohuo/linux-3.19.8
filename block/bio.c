@@ -749,7 +749,7 @@ static int __bio_add_page(struct request_queue *q, struct bio *bio, struct page
   //    len = 1024,
   //
   //    If blocksize == pagesize, 1 page contains only 1 block, this kind
-  //    of merge can never happen.
+  //    of merge may never happen.
 	if (bio->bi_vcnt > 0) {
 		struct bio_vec *prev = &bio->bi_io_vec[bio->bi_vcnt - 1];
 
