@@ -587,7 +587,7 @@ struct block_device *bdget(dev_t dev)
     // BDEV_I(inode)-----> +======================================+
     //                     |       struct block_device bdev;      |
     //                     |  +--------------------------------+ <----------+
-    //                     |  |                                |  |         |
+    //                     |  |            bd_dev = dev        |  |         |
     //     all_bdevs ...---+--+------------bd_list ------------+--+---...   |
     //                     |  |            bd_inode  ------+   |  |         |
     //                     |  |                            |   |  |         |
@@ -729,9 +729,9 @@ static struct block_device *bd_acquire(struct inode *inode)
       //                       +======================================+
       //                       |       struct block_device bdev;      |
       // inode->i_bdev-------> |  +--------------------------------+ <----------+
-      //the inode in devtmpfs  |  |                                |  |         |
-      //corresponding to path  |  |            bd_list             |  |         |
-      //(such as /dev/sdb)     |  |            bd_inode  ------+   |  |         |
+      //the inode in devtmpfs  |  |        bd_dev = inode->i_rdev  |  |         |
+      //corresponding to path  |  |        bd_list                 |  |         |
+      //(such as /dev/sdb)     |  |        bd_inode -----------+   |  |         |
       //                       |  |                            |   |  |         |
       //                       |  |                            |   |  |         |
       //                       |  |                            |   |  |         |
@@ -1243,7 +1243,7 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 
 	ret = -ENXIO;
 
-  //Yuanguo: if bdev is a partition, partno will be set to the part#;
+  //Yuanguo: if bdev (bd_dev) is a partition, partno will be set to the part#;
   //         else, partno will be set to 0;
 	disk = get_gendisk(bdev->bd_dev, &partno);
 	if (!disk)
@@ -1301,6 +1301,10 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			 * The latter is necessary to prevent ghost
 			 * partitions on a removed medium.
 			 */
+      //Yuanguo: 
+      //  if the block device was re-partitioned
+      //    1. rescan partitions if open succeeded;
+      //    2. invalidate partitions (???) if open failed with -ENOMEDIUM;
 			if (bdev->bd_invalidated) {
 				if (!ret)
 					rescan_partitions(disk, bdev);
