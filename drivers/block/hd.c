@@ -601,6 +601,9 @@ repeat:
 		return;
 	}
 	disk = req->rq_disk->private_data;
+  
+	printk("Yuanguo: In function %s(), disk:%s\n", __func__, req->rq_disk->disk_name);
+
 	block = blk_rq_pos(req);
 	nsect = blk_rq_sectors(req);
 	if (block >= get_capacity(req->rq_disk) ||
@@ -655,6 +658,7 @@ repeat:
 
 static void do_hd_request(struct request_queue *q)
 {
+	printk("Yuanguo: Enter %s\n", __func__);
 	hd_request();
 }
 
@@ -697,6 +701,8 @@ static const struct block_device_operations hd_fops = {
 static int __init hd_init(void)
 {
 	int drive;
+
+	printk("Yuanguo: Enter %s\n", __func__);
 
 	if (register_blkdev(HD_MAJOR, "hd"))
 		return -1;

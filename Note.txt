@@ -1,0 +1,23 @@
+diskstats_show            block/genhd.c
+blk_account_io_done       block/blk-core.c
+part_round_stats_single   block/blk-core.c
+
+
+driver 
+ --> blk_init_queue
+       --> blk_init_queue_node
+            --> blk_init_allocated_queue
+                --> blk_queue_make_request
+                    make_request_fn = blk_queue_bio;
+
+generic_make_request  -->
+  make_request_fn (blk_queue_bio)
+      --> add_acct_request 
+          --> blk_account_io_start 
+              -->  part_round_stats 
+                  --> part_round_stats_single
+
+
+
+
+blk_finish_request   -->  blk_account_io_done  --> part_round_stats  --> part_round_stats_single
