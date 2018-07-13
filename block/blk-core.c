@@ -1608,8 +1608,12 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	 * Check if we can merge with the plugged list before grabbing
 	 * any locks.
 	 */
-	if (!blk_queue_nomerges(q) &&     //Yuanguo: NOMERGES flag not set, so merge is allowed.
-	    blk_attempt_plug_merge(q, bio, &request_count)) //Yuanguo: return true if merge successful; false, otherwise
+  //Yuanguo: try to merge with current->plug list without taking any lock; blk_attempt_plug_merge 
+  //    will call bio_attempt_back_merge or bio_attempt_front_merge; 
+  //    if merge successful, blk_account_io_start(req, false) is called, so disk_stats.merges[READ/WRITE]++;
+  //    if merge failed, do nothing;
+	if (!blk_queue_nomerges(q) && //Yuanguo: NOMERGES flag not set, so merge is allowed.
+	    blk_attempt_plug_merge(q, bio, &request_count)) //Yuanguo: true if merge successful; false, otherwise
 		return;   //Yuanguo: succeeded to merge, no need to put bio into queue;
 
 	spin_lock_irq(q->queue_lock);
@@ -1617,6 +1621,10 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
   //Yuanguo: not merge here, just figure out the BACK_MERGE or FRONT_MERGE
 	el_ret = elv_merge(q, &req, bio);
 
+  //Yuanguo: try to merge with lock hold; will call bio_attempt_back_merge or 
+  //    bio_attempt_front_merge; 
+  //    if merge successful, blk_account_io_start(req, false) is called, so disk_stats.merges[READ/WRITE]++;
+  //    if merge failed, do nothing;
 	if (el_ret == ELEVATOR_BACK_MERGE) {
 		if (bio_attempt_back_merge(q, req, bio)) {  //Yuanguo: actual merge takes place here.
       //Yuanguo: call callback of elevator (elevator_bio_merged_fn);
@@ -1644,11 +1652,17 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 			goto out_unlock;
 		}
 	}
-
-  //Yuanguo: couldn't be merged, alloc a 'struct request' req for bio, and 
-  //   1. pu req in current->plug->list;
+  //Yuanguo: In summary, if merge succeeded, blk_account_io_start(req, false) is called: 
+  //               disk_stats.merges[READ/WRITE]++;
+  //
+  //Yuanguo: if merge failed, we get here. next, alloc a 'struct request' req for bio, and 
+  //   1. put req in current->plug->list; 
   // or
-  //   2. put req in q and run it;
+  //   2. put req in q and run it; 
+  //   in both cases, blk_account_io_start(rq, true) will be called:
+  //		           disk_stats.time_in_queue += {requests-in-flight} * {time-elpased}
+  //		           disk_stats.io_ticks += {time-elpased}
+  //               disk_stats.in_flight[READ/WRITE]++
 
 get_rq:
 	/*
@@ -2247,6 +2261,18 @@ static inline struct request *blk_pm_peek_request(struct request_queue *q,
 }
 #endif
 
+//Yuanguo: if new_io == false, it means the bio was successfully merged; 
+//            so 
+//               //disk_stats.merges[READ/WRITE]++
+//               part_stat_inc(cpu, part, merges[rw]); 
+//         if new_io == true, it means that a new request has been created for
+//            the bio; so
+//		           //disk_stats.time_in_queue += {requests-in-flight} * {time-elpased}
+//		           //disk_stats.io_ticks += {time-elpased}
+//		           part_round_stats(cpu, part);
+//
+//               //disk_stats.in_flight[READ/WRITE]++
+//		           part_inc_in_flight(part, rw);  
 void blk_account_io_start(struct request *rq, bool new_io)
 {
 	struct hd_struct *part;
