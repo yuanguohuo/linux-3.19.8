@@ -48,6 +48,35 @@ struct bvec_iter {
  * stacking drivers)
  */
 //Yuanguo:
+//
+//                               struct bio
+//                     
+//                              | ...   |            | ...    |
+//                              +-------+            +--------+
+//               +--- segment0  |pageN  | ---------> |blockX  |
+//               |              +-------+            +--------+ 
+// physical ---> +--- segment1  |pageN+1| ---------> |blockX+1|
+// segment       |              +-------+            +--------+
+//               +--- segment2  |pageN+2| ---------> |blockX+2|
+//                              +-------+            +--------+
+//                                ...       +------> |blockX+3|
+//                              +-------+   |        +--------+
+// physical --------> segment3  |pageM  | --+ +----> |blockX+4|
+// segment                      +-------+     |      +--------+
+//                                ...         |      | ...    |
+//                              +-------+     |      
+// physical --------> segment4  |pageP  | ----+      
+// segment                      +-------+            
+//                              | ...   |
+//                            
+//                          page-size    = 4KB
+//                          block-size   = 4KB
+//                          segment-size = 4KB (block <= segment <= page)
+
+
+//Yuanguo: +-----------------------------------------------------------------+
+//         |                         In detail                               |
+//         +-----------------------------------------------------------------+
 //    a block is within a segment; 
 //    a segment is within a page: 
 //    that's to say: block-size <= segment-size <= page-size

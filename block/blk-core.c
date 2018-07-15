@@ -1579,6 +1579,8 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	struct request *req;
 	unsigned int request_count = 0;
 
+	printk("Yuanguo: enter func %s\n", __func__);
+
 	/*
 	 * low level driver can indicate that it wants pages above a
 	 * certain limit bounced to low memory (ie for highmem, or even
@@ -1654,15 +1656,18 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	}
   //Yuanguo: In summary, if merge succeeded, blk_account_io_start(req, false) is called: 
   //               disk_stats.merges[READ/WRITE]++;
+  //         and return from this function.
   //
-  //Yuanguo: if merge failed, we get here. next, alloc a 'struct request' req for bio, and 
-  //   1. put req in current->plug->list; 
-  // or
-  //   2. put req in q and run it; 
-  //   in both cases, blk_account_io_start(rq, true) will be called:
-  //		           disk_stats.time_in_queue += {requests-in-flight} * {time-elpased}
-  //		           disk_stats.io_ticks += {time-elpased}
-  //               disk_stats.in_flight[READ/WRITE]++
+  //Yuanguo: if merge failed, this function continues as below: alloc a 'struct request'
+  //         req for bio, and 
+  //                      1. put req in current->plug->list; 
+  //                    or
+  //                      2. put req in q and run it; 
+  //
+  //         in both cases, blk_account_io_start(rq, true) will be called:
+  //		             disk_stats.time_in_queue += {requests-in-flight} * {time-elpased}
+  //		             disk_stats.io_ticks += {time-elpased}
+  //                 hd_struct.in_flight[READ/WRITE]++
 
 get_rq:
 	/*
@@ -1951,6 +1956,29 @@ end_io:
  * a lower device by calling into generic_make_request recursively, which
  * means the bio should NOT be touched after the call to ->make_request_fn.
  */
+//Yuanguo:
+//     generic_make_request(bio)
+//           1. generic_make_request_checks 
+//                 a. do some check work;
+//                 b. blk_partition_remap
+//           2. if current->bio_list is NOT null, that means
+//              a make_request_fn is active, we don't want
+//              to start a new one, so:
+//                 a. add bio to current->bio_list;
+//                 b. return;
+//           3. current->bio_list is null. no make_request_fn
+//              is active, so start one: 
+//                 a. init current->bio_list to an empty list; 
+//                 b. make_request_fn(..., bio)
+//                 c. bio = pop current->bio_list
+//                 d. if bio != null, goto 3.b
+//
+//      question: current->bio_list is initialized to empty in 3.a,
+//                how can 3.c and 3.d pop a non-null bio from it?
+//      answer:   3.b may call generic_make_request recursively (
+//                due to multi layers of block), in that case, the
+//                recursive call will put a bio in step 2 and return,
+//                thus the main call can pop a non-null bio in 3.c;
 void generic_make_request(struct bio *bio)
 {
 	struct bio_list bio_list_on_stack;
@@ -2002,14 +2030,48 @@ void generic_make_request(struct bio *bio)
 	do {
 		struct request_queue *q = bdev_get_queue(bio->bi_bdev);
 
-    //Yuanguo: make_request_fn is a func pointer, which is set in:
-    //   block/blk-core.c      blk_init_queue            -->
-    //   block/blk-core.c      blk_init_queue_node       -->
-    //   block/blk-core.c      blk_init_allocated_queue  -->
-    //   block/blk-settings.c  blk_queue_make_request
-    //so, make_request_fn is set to function blk_queue_bio();
+    //Yuanguo: make_request_fn is a func pointer, which function it points to?
+    //  there are 3 cases, and it points to
     //
-    //Plus, blk_init_queue is called in device driver initialization, as
+    //         blk_mq_make_request   //case-1
+    //         blk_sq_make_request   //case-2
+    //         blk_queue_bio         //case-3
+    //
+    //  scsi_alloc_sdev(...)        //in drivers/scsi/scsi_scan.c 
+    //  {
+    //      ......
+	  //      if (shost_use_blk_mq(shost))
+	  //      	sdev->request_queue = scsi_mq_alloc_queue(sdev);
+    //      	                      {
+    //      	                          blk_mq_init_queue
+    //      	                          {
+	  //                                     if (q->nr_hw_queues > 1)
+	  //                                     	 blk_queue_make_request(q, blk_mq_make_request);  //case-1
+	  //                                     else
+	  //                                      	blk_queue_make_request(q, blk_sq_make_request); //case-2
+    //      	                          }
+    //      	                      }
+	  //      else
+	  //      	sdev->request_queue = scsi_alloc_queue(sdev);
+    //      	                      {
+    //      	                        __scsi_alloc_queue
+    //      	                        {
+    //      	                          blk_init_queue
+    //      	                          {
+    //      	                            blk_init_queue_node
+    //      	                            {
+    //      	                              blk_init_allocated_queue
+    //      	                              {
+    //      	                                blk_queue_make_request(q, blk_queue_bio);  //case-3
+    //      	                              }
+    //      	                            }
+    //      	                          }
+    //      	                        }
+    //      	                      }
+    //      ......
+    //  }
+    //
+    //Plus, blk_init_queue is also called in device driver initialization, as
     //   an example, see in hd_init() in drivers/block/hd.c;
 		q->make_request_fn(q, bio);
 
@@ -2271,7 +2333,7 @@ static inline struct request *blk_pm_peek_request(struct request_queue *q,
 //		           //disk_stats.io_ticks += {time-elpased}
 //		           part_round_stats(cpu, part);
 //
-//               //disk_stats.in_flight[READ/WRITE]++
+//               //hd_struct.in_flight[READ/WRITE]++
 //		           part_inc_in_flight(part, rw);  
 void blk_account_io_start(struct request *rq, bool new_io)
 {

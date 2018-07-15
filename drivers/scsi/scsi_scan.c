@@ -274,9 +274,17 @@ static struct scsi_device *scsi_alloc_sdev(struct scsi_target *starget,
 	sdev->borken = 1;
 
 	if (shost_use_blk_mq(shost))
+  {
+		printk("in func %s, Yuanguo: device [id=%u channel=%u lun=%lu] using mq\n", __func__, 
+                 sdev->id, sdev->channel, sdev->lun);
 		sdev->request_queue = scsi_mq_alloc_queue(sdev);
+  }
 	else
+  {
+		printk("in func %s, Yuanguo: device [id=%u channel=%u lun=%lu] NOT using mq\n", __func__, 
+                 sdev->id, sdev->channel, sdev->lun);
 		sdev->request_queue = scsi_alloc_queue(sdev);
+  }
 	if (!sdev->request_queue) {
 		/* release fn is set up in scsi_sysfs_device_initialise, so
 		 * have to free and put manually here */
