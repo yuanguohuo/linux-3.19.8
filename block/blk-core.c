@@ -2073,6 +2073,48 @@ void generic_make_request(struct bio *bio)
     //
     //Plus, blk_init_queue is also called in device driver initialization, as
     //   an example, see in hd_init() in drivers/block/hd.c;
+    //
+    //Yuanguo: case-1/case-2 is a new multiple queue I/O scheduling mechanism 
+    //for block devices known as blk-mq. It's enabled by default in the following 
+    //drivers: virtio-blk, mtip32xx, nvme, and rbd (ceph). But for scsi, it's
+    //not enabled by default.
+    //
+    //How to check if it's enabled for scsi?
+    //   1. # cat /sys/module/scsi_mod/parameters/use_blk_mq
+    //        Y
+    //   2. # cat /sys/block/sda/queue/scheduler 
+    //        none     --Yuanguo: multi-queue bypasses scheduler, so it's none
+    //   3. # tree /sys/class/block/sda/mq
+    //        /sys/class/block/sda/mq
+    //        └── 0
+    //            ├── active
+    //            ├── cpu0
+    //            │   ├── completed
+    //            │   ├── dispatched
+    //            │   ├── merged
+    //            │   └── rq_list
+    //            ├── cpu1
+    //            │   ├── completed
+    //            │   ├── dispatched
+    //            │   ├── merged
+    //            │   └── rq_list
+    //            ├── cpu_list
+    //            ├── dispatched
+    //            ├── pending
+    //            ├── queued
+    //            ├── run
+    //            └── tags
+    //
+    //How to enable it for scsi?
+    //   1. vim /etc/grub2.cfg
+    //      append "scsi_mod.use_blk_mq=y" to line:
+	  //      linux16 /vmlinuz-3.19.8 root=/dev/mapper/centos-root ... LANG=en_US.UTF-8
+    //   2. re-complie kernel with CONFIG_SCSI_MQ_DEFAULT=y
+    //
+    //Multi-queue boosts performance of SSD a lot; and prior to kernel 3.19, 
+    //multi-queue was only in nvme driver. In 3.19, multi-queue is moved from
+    //nvme driver to the separate 'multi-queue block layer'. So SATA SDD or even
+    //HDD can also benefit from it?
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);
