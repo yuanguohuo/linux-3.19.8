@@ -1579,7 +1579,7 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 	struct request *req;
 	unsigned int request_count = 0;
 
-	printk("Yuanguo: enter func %s\n", __func__);
+	//printk("Yuanguo: enter func %s\n", __func__);
 
 	/*
 	 * low level driver can indicate that it wants pages above a
