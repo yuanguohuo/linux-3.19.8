@@ -61,6 +61,17 @@ struct request_list {
 	/*
 	 * count[], starved[], and wait[] are indexed by
 	 * BLK_RW_SYNC/BLK_RW_ASYNC
+   *
+   * Yuanguo: 
+   *    read is sync;
+   *    write can be sync or async;
+   *    same as ceph filestore;
+   * thus,
+   *    BLK_RW_SYNC  = read || sync-write 
+   *    BLK_RW_ASYNC = async-write
+   *
+   * In fact, in old versions of linux kernel, e.g. 2.6, cout[], starved[] and
+   * wait[] were indexed by READ and WRITE;
 	 */
 	int			count[2];
 	int			starved[2];
@@ -632,6 +643,9 @@ static inline unsigned int blk_queue_cluster(struct request_queue *q)
 	return q->limits.cluster;
 }
 
+//Yuanguo: read is sync;
+//         write can be sync or async;
+//         same as ceph filestore;
 /*
  * We regard a request as sync, if either a read or a sync write
  */

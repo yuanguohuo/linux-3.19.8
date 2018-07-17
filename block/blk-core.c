@@ -970,7 +970,7 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 	struct elevator_type *et = q->elevator->type;
 	struct io_context *ioc = rq_ioc(bio);
 	struct io_cq *icq = NULL;
-	const bool is_sync = rw_is_sync(rw_flags) != 0;
+	const bool is_sync = rw_is_sync(rw_flags) != 0; //Yuanguo: true if read or sync-write
 	int may_queue;
 
 	if (unlikely(blk_queue_dying(q)))
@@ -980,6 +980,7 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 	if (may_queue == ELV_MQUEUE_NO)
 		goto rq_starved;
 
+  //Yuanguo: too many requests ...
 	if (rl->count[is_sync]+1 >= queue_congestion_on_threshold(q)) {
 		if (rl->count[is_sync]+1 >= q->nr_requests) {
 			/*
@@ -988,12 +989,12 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 			 * This process will be allowed to complete a batch of
 			 * requests, others will be blocked.
 			 */
-			if (!blk_rl_full(rl, is_sync)) {
+			if (!blk_rl_full(rl, is_sync)) { //Yuanguo: full flag is not set yet
 				ioc_set_batching(q, ioc);
 				blk_set_rl_full(rl, is_sync);
-			} else {
+			} else {  //Yuanguo: full flag is already set
 				if (may_queue != ELV_MQUEUE_MUST
-						&& !ioc_batching(q, ioc)) {
+						&& !ioc_batching(q, ioc)) { //Yuanguo: not allowed if not batcher
 					/*
 					 * The queue is full and the allocating
 					 * process is not a "batcher", and not
@@ -1033,8 +1034,10 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 	 * Also, lookup icq while holding queue_lock.  If it doesn't exist,
 	 * it will be created after releasing queue_lock.
 	 */
+  //Yuanguo: REQ_FLUSH | REQ_FUA requests will not be managed by elevator;
 	if (blk_rq_should_init_elevator(bio) && !blk_queue_bypass(q)) {
 		rw_flags |= REQ_ELVPRIV;
+    //Yuanguo: elevator cannot be destroyed if nr_rqs_elvpriv > 0
 		q->nr_rqs_elvpriv++;
 		if (et->icq_cache && ioc)
 			icq = ioc_lookup_icq(ioc, q);
@@ -1045,6 +1048,7 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 	spin_unlock_irq(q->queue_lock);
 
 	/* allocate and init request */
+  //Yuanguo: the most important step ...
 	rq = mempool_alloc(rl->rq_pool, gfp_mask);
 	if (!rq)
 		goto fail_alloc;
@@ -1142,11 +1146,12 @@ rq_starved:
 static struct request *get_request(struct request_queue *q, int rw_flags,
 				   struct bio *bio, gfp_t gfp_mask)
 {
-	const bool is_sync = rw_is_sync(rw_flags) != 0;
+	const bool is_sync = rw_is_sync(rw_flags) != 0; //Yuanguo: true if read or sync-write
 	DEFINE_WAIT(wait);
 	struct request_list *rl;
 	struct request *rq;
 
+  //Yuanguo: return q->root_rl if not using cgroup;
 	rl = blk_get_rl(q, bio);	/* transferred to @rq on success */
 retry:
 	rq = __get_request(rl, rw_flags, bio, gfp_mask);
