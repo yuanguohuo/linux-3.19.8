@@ -982,17 +982,17 @@ static struct request *__get_request(struct request_list *rl, int rw_flags,
 
   //Yuanguo: too many requests ...
 	if (rl->count[is_sync]+1 >= queue_congestion_on_threshold(q)) {
-		if (rl->count[is_sync]+1 >= q->nr_requests) {
+		if (rl->count[is_sync]+1 >= q->nr_requests) { //Yuanguo: req number reached nr_requests, should mark full
 			/*
 			 * The queue will fill after this allocation, so set
 			 * it as full, and mark this process as "batching".
 			 * This process will be allowed to complete a batch of
 			 * requests, others will be blocked.
 			 */
-			if (!blk_rl_full(rl, is_sync)) { //Yuanguo: full flag is not set yet
+			if (!blk_rl_full(rl, is_sync)) { //Yuanguo: has not marked full yet
 				ioc_set_batching(q, ioc);
 				blk_set_rl_full(rl, is_sync);
-			} else {  //Yuanguo: full flag is already set
+			} else {  //Yuanguo: already marked full 
 				if (may_queue != ELV_MQUEUE_MUST
 						&& !ioc_batching(q, ioc)) { //Yuanguo: not allowed if not batcher
 					/*
@@ -1688,6 +1688,7 @@ get_rq:
 	 * Grab a free request. This is might sleep but can not fail.
 	 * Returns with the queue unlocked.
 	 */
+  //Yuanguo: alloc a 'struct request'
 	req = get_request(q, rw_flags, bio, GFP_NOIO);
 	if (IS_ERR(req)) {
 		bio_endio(bio, PTR_ERR(req));	/* @q is dead */

@@ -324,6 +324,8 @@ struct request_queue {
 	struct request		*last_merge;
 	struct elevator_queue	*elevator;
 	int			nr_rqs[2];	/* # allocated [a]sync rqs */
+
+  //Yuanguo: elevator cannot be destroyed if nr_rqs_elvpriv > 0
 	int			nr_rqs_elvpriv;	/* # allocated rqs w/ elvpriv */
 
 	/*
@@ -418,9 +420,25 @@ struct request_queue {
 	/*
 	 * queue settings
 	 */
+  //Yuanguo: this request_queue should be marked as 'full' if number of 
+  //         requests reached 'nr_requests'; 
+  //         blockable processes trying to add requests must be put in 
+  //         root_rl.wait;
+  //         default value is 128;
 	unsigned long		nr_requests;	/* Max # of requests */
+
+  //Yuanguo: this request_queue is considered as congested if number of
+  //         requests reached 'nr_congestion_on'
+  //         the kernel will try to slow down the creation rate of the 
+  //         new requests.
+  //         default value is 113;
 	unsigned int		nr_congestion_on;
+
+  //Yuanguo: A congested request queue becomes uncongested when the number 
+  //         of pending requests falls below the value of the nr_congestion_off  
+  //         default value is 111;
 	unsigned int		nr_congestion_off;
+
 	unsigned int		nr_batching;
 
 	unsigned int		dma_drain_size;
