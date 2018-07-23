@@ -1,3 +1,45 @@
+1. in the early days, one computer has one console; and many terminals can
+   connect to it; the console can be considerd as a special termial: startup
+   messages, printk outputs are seen on console but not on termials;
+
+2. Now, /dev/tty1 to /dev/tty63 simulates those terminals, so they are called
+   virtual terminals; 
+
+3. One of /dev/tty1 to /dev/tty6 can assume the role of console:
+            chvt N   //1 <= N <= 6 tty1-tty6 can be used as console;
+
+4. Moreover, we can have more than one consoles, one for each type:
+            console=ttyS2,tty1   //kernel parameters
+   in this case:
+       a. startup messages, printk outputs are seen on both consoles;
+       b. echo x > /dev/console, 'x' is shown on both consoles;
+       c. but only the last console can input;
+
+                         /dev/console --------------------------------+
+                         /dev/tty0                                    |
+                              |                                       |
+                              |                                       |
+                              V                                       |
+            +----------> /dev/tty1  ....  physical VGA console    <---+
+ virtual    |            /dev/tty2                                    |
+ terminals  |            /dev/tty3                                    |
+            |            ...                                          |
+            +----------> /dev/tty63                                   |
+                                                                      | 
+            +----------> /dev/ttyS0                                   | 
+ serial     |            /dev/ttyS1                                   |
+ ports      |            /dev/ttyS2 ..... physical Serial console <---+
+            +----------> /dev/ttyS3
+
+            +----------> /dev/pts/0
+pseudo      |            /dev/pts/1
+termials    |            /dev/pts/2
+ SSH        |            ...
+ Telnet     +----------> /dev/pts/N
+ GUI
+      
+
+
 diskstats_show            block/genhd.c
 blk_account_io_done       block/blk-core.c
 part_round_stats_single   block/blk-core.c
