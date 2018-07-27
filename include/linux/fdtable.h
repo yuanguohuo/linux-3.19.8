@@ -46,7 +46,7 @@ struct files_struct {
   /*
    * read mostly part
    */
-        //Yuanguo: how many processes are there sharing this struct?
+  //Yuanguo: how many threads are there sharing this struct.
 	atomic_t count;
 	struct fdtable __rcu *fdt;
 	struct fdtable fdtab;

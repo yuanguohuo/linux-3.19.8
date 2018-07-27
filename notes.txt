@@ -40,6 +40,52 @@ termials    |            /dev/pts/2
       
 
 
+------------------------------------------------------------------------------------
+
+user              fork                                    pthread_create 
+programe           |                                            |
+                   |                                            |
+                   V                                            V
+libc              fork                                    pthread_create
+                   |                                            |
+                   |                                            |
+                   |                                            |
+              child_stack=0,                            child_stack=0x7fa8c0d41fb0, 
+              flags=CLONE_CHILD_CLEARTID                flags=CLONE_VM
+                    CLONE_CHILD_SETTID                        CLONE_FS
+                    SIGCHLD,                                  CLONE_FILES
+              child_tidptr=0x7f9e00902a10                     CLONE_SIGHAND
+                   |                                          CLONE_THREAD
+                   |                                          CLONE_SYSVSEM
+                   |                                          CLONE_SETTLS
+                   |                                          CLONE_PARENT_SETTID
+                   |                                          CLONE_CHILD_CLEARTID, 
+                   |                                    parent_tidptr=0x7fa8c0d429d0, 
+                   |                                    tls=0x7fa8c0d42700,<-----------+
+                   |                                    child_tidptr=0x7fa8c0d429d0    |
+                   |                                             |                     |
+                   |                                             |                     |
+                   |                                             |                     |
+                   |                                             |                     |
+                   +--------------------+------------------------+                     |
+                                        |                           parent:  pthread_create(pthread_t*)
+                                        |                           child:   pthread_self()
+                                        |
+                                        |
+                                        V
+SYSCALL               fork    vfork   clone 
+                        |       |       |
+                        |       |       |
+                        +-------+-------+
+                                |
+                                |
+                                V
+                             do_fork
+
+
+
+------------------------------------------------------------------------------------
+
 diskstats_show            block/genhd.c
 blk_account_io_done       block/blk-core.c
 part_round_stats_single   block/blk-core.c
