@@ -570,6 +570,9 @@ void sock_release(struct socket *sock)
 	if (sock->ops) {
 		struct module *owner = sock->ops->owner;
 
+    //Yuanguo: 
+    //   see net/ipv4/af_inet.c: inet_stream_ops
+    // we know that ops->release = inet_release
 		sock->ops->release(sock);
 		sock->ops = NULL;
 		module_put(owner);

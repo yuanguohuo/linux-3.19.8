@@ -412,6 +412,9 @@ int inet_release(struct socket *sock)
 		    !(current->flags & PF_EXITING))
 			timeout = sk->sk_lingertime;
 		sock->sk = NULL;
+
+    //Yuanguo: from net/ipv4/tcp_ipv4.c : tcp_prot
+    // we know sk_prot->close = tcp_close
 		sk->sk_prot->close(sk, timeout);
 	}
 	return 0;

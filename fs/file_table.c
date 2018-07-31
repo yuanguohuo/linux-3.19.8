@@ -204,6 +204,10 @@ static void __fput(struct file *file)
 			file->f_op->fasync(-1, file, 0);
 	}
 	ima_file_free(file);
+
+  //Yuanguo: 
+  //for tcp socket, see net/socket.c : socket_file_ops
+  //and we known f_op->release = sock_close
 	if (file->f_op->release)
 		file->f_op->release(inode, file);
 	security_file_free(file);
@@ -266,8 +270,19 @@ void fput(struct file *file)
 	if (atomic_long_dec_and_test(&file->f_count)) {//Yuanguo: return true if result is 0
 		struct task_struct *task = current;
 
-		if (likely(!in_interrupt() && !(task->flags & PF_KTHREAD))) {
+		if (likely(!in_interrupt() && !(task->flags & PF_KTHREAD)))
+    {
+      //Yuanguo: 
+      //  file->f_u.fu_rcuhead is a work;
+      //  (&work)->func = ____fput;
 			init_task_work(&file->f_u.fu_rcuhead, ____fput);
+
+      //Yuanguo:
+      //  ask task (the 'current') to execute the work.
+      //  queue the work for task_work_run() and notify the task;
+      //  (&work)->func() will be called when the task returns 
+      //  from kernel mode or exits;
+      //  So, go on from ____fput ...
 			if (!task_work_add(task, &file->f_u.fu_rcuhead, true))
 				return;
 			/*
