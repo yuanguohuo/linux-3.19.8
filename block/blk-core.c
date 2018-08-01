@@ -2115,12 +2115,13 @@ void generic_make_request(struct bio *bio)
     //   1. vim /etc/grub2.cfg
     //      append "scsi_mod.use_blk_mq=y" to line:
 	  //      linux16 /vmlinuz-3.19.8 root=/dev/mapper/centos-root ... LANG=en_US.UTF-8
+    // or
     //   2. re-complie kernel with CONFIG_SCSI_MQ_DEFAULT=y
     //
     //Multi-queue boosts performance of SSD a lot; and prior to kernel 3.19, 
     //multi-queue was only in nvme driver. In 3.19, multi-queue is moved from
     //nvme driver to the separate 'multi-queue block layer'. So SATA SDD or even
-    //HDD can also benefit from it?
+    //HDD can also benefit from it.
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);

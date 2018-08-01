@@ -183,45 +183,43 @@ blk_finish_request   -->  blk_account_io_done  --> part_round_stats  --> part_ro
 
 
 
+1. Generic Block Layer
 
+1.1 struct bio
 
-
-------------------------------------------------------------------------------------------------
-                                       Generic Block Layer
-------------------------------------------------------------------------------------------------
-//                               struct bio
-//                     
-//                              | ...   |            | ...    |
-//                              +-------+            +--------+
-//               +--- segment0  |pageN  | ---------> |blockX  |
-//               |              +-------+            +--------+ 
-// physical ---> +--- segment1  |pageN+1| ---------> |blockX+1|
-// segment       |              +-------+            +--------+
-//               +--- segment2  |pageN+2| ---------> |blockX+2|
-//                              +-------+            +--------+
-//                                ...       +------> |blockX+3|
-//                              +-------+   |        +--------+
-// physical --------> segment3  |pageM  | --+ +----> |blockX+4|
-// segment                      +-------+     |      +--------+
-//                                ...         |      | ...    |
-//                              +-------+     |      
-// physical --------> segment4  |pageP  | ----+      
-// segment                      +-------+            
-//                              | ...   |
-//                            
-//                          page-size    = 4KB
-//                          block-size   = 4KB
-//                          segment-size = 4KB (block <= segment <= page)
-
-
+                               struct bio
+                     
+                              | ...   |            | ...    |
+                              +-------+            +--------+
+               +--- segment0  |pageN  | ---------> |blockX  |
+               |              +-------+            +--------+ 
+ physical ---> +--- segment1  |pageN+1| ---------> |blockX+1|
+ segment       |              +-------+            +--------+
+               +--- segment2  |pageN+2| ---------> |blockX+2|
+                              +-------+            +--------+
+                                ...       +------> |blockX+3|
+                              +-------+   |        +--------+
+ physical --------> segment3  |pageM  | --+ +----> |blockX+4|
+ segment                      +-------+     |      +--------+
+                                ...         |      | ...    |
+                              +-------+     |      
+ physical --------> segment4  |pageP  | ----+      
+ segment                      +-------+            
+                              | ...   |
+                            
+                          page-size    = 4KB
+                          block-size   = 4KB
+                          segment-size = 4KB (block <= segment <= page)
 
 
 
 
 
--------------------------------------------------------------------------------------------------
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  Generic block layer  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
--------------------------------------------------------------------------------------------------
+1.2 struct gendisk 
+
+
+1.3 interfaces
+
                                  
 submit_bio(rw, bio)             |     generic_make_request(bio)           
    1. some cpu/process level    |           1. generic_make_request_checks 
@@ -244,18 +242,14 @@ submit_bio(rw, bio)             |     generic_make_request(bio)
                                 |      answer:   3.b may call generic_make_request recursively (
                                 |                due to multi layers of block), in that case, the
                                 |                recursive call will put a bio in step 2 and return,
-                                |                thus the main call can pop a non-null bio in 3.c;
+                                |                thus the outer call may pop a non-null bio in 3.c;
                                        
---------------------------------------------------------------------------------------------------
-<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  Generic block layer  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
---------------------------------------------------------------------------------------------------
 
 
 
+2. IO Scheduler Layer
 
--------------------------------------------------------------------------------------------------
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>  IO Schedule layer  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
--------------------------------------------------------------------------------------------------
+
 
 
 

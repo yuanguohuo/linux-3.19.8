@@ -32,14 +32,13 @@ struct bio_vec {
 struct bvec_iter {
   //Yuanguo: bi_sector is the first sector on disk of block 
   //   I/O operation 
-	sector_t		bi_sector;	/* device address in 512 byte
-						   sectors */
+	sector_t		bi_sector;	/* device address in 512 byte sectors */
 
 	unsigned int		bi_size;	/* residual I/O count */
 
 	unsigned int		bi_idx;		/* current index into bvl_vec */
 
-	unsigned int            bi_bvec_done;	/* number of bytes completed in
+	unsigned int    bi_bvec_done;	/* number of bytes completed in
 						   current bvec */
 };
 
@@ -91,29 +90,25 @@ struct bvec_iter {
 //          a segment is an entire page;
 //          a block is an entire segment;
 //
-//
-//
-//                                                 |        |               |        |
-//                   +----------------+            |        |               |        |
-//                   | struct bio_vec |----------->|========|------------+  |        |
-//                   +----------------+            |        |            |  |        |
-//                   ......                 +----->|========|---------+  |  |        |
-//                   +----------------+     |      |        |         |  |  |        |
-//                 3 | struct bio_vec |-----+      |        |         |  |  |        |
-//                   +----------------+            |        |         |  |  |        |
-//                 2 | struct bio_vec |----+       |        |         |  +->|========|
-//                   +----------------+    +-----> |========|------+  +---->|========|
-//                 1 | struct bio_vec | ---------->|========|---+  +------->|========|
-//                   +----------------+            |        |   +---------->|========|
-//                 0 | struct bio_vec | ----+      |        |    +--------->|========| <-------+
-//   bi_io_vec --->  +----------------+     |      |        |    |          |        |         |
-//                                          |      |        |    |          |        |         |
-//                                          +----->|========|----+          |        |         |
-//                                                 |        |               |        |         |
-//                                                 |        |               |        |         |
-//                                                 |        |               |        |         |
-//                                       a page -->|        |    a block -->|        |         |
-//                                                 |        |               |        |         |
+//                                                  ......               
+//                                                 +--------+   
+//                                          +----->|PageP   |---------+
+//                                          |      +--------+         |     |        |
+//                   +----------------+     |       ......            |     |        |
+//                 4 | struct bio_vec |-----+       ......            |     +--------+
+//                   +----------------+             ......            +---->|BlockX+4|
+//                 3 | struct bio_vec |--------+   +--------+               +--------+
+//                   +----------------+        +-->|PageM   |-------------->|BlockX+3|
+//                 2 | struct bio_vec |------+     +--------+               +--------+
+//                   +----------------+      |      ......      +---------->|BlockX+2|
+//                 1 | struct bio_vec |----+ |     +--------+   |           +--------+
+//                   +----------------+    | +---->|PageN+2 |---+  +------->|BlockX+1|
+//                 0 | struct bio_vec |--+ |       +--------+      |        +--------+ <-------+
+//   bi_io_vec --->  +----------------+  | +------>|PageN+1 |------+ +----->|BlockX  |         |
+//                                       |         +--------+        |      +--------+         |
+//                                       +-------->|PageN   |--------+      |        |         |
+//                                                 +--------+               |        |         |
+//                                                  .......                                    |
 //                                                   memroy                    disk            |
 //                                                                                             |
 //                                                                              bi_iter.bi_sector
@@ -124,7 +119,7 @@ struct bvec_iter {
 //      'struct bio' depicts an IO on a contigous range of disk, but RAM segments are 
 //      scattered/gathered.
 //   3. segments that are contigous in RAM can be merged into a 'physical segment', such 
-//      as segment bi_io_vec[1] and bi_io_vec[2];
+//      as segment bi_io_vec[0], bi_io_vec[1] and bi_io_vec[2];
 //
 //   A 'struct bio' can be extened by adding a new segment to it, see bio_add_page():
 //      a. the new segment might be merged into prev segment, this can take place only
