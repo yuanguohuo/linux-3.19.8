@@ -560,6 +560,14 @@ static int bdev_set(struct inode *inode, void *data)
 
 static LIST_HEAD(all_bdevs);
 
+//Yuanguo: bdget is used to find a file (inode and block_device) in 'bdev fs'; the inode in 'bdev fs' 
+//         is bdev_inode;
+//to ext2/3/4: the identity of a file is the 'inode number', see function iget_locked(); to find the
+//             inode (in ext2/3/4 filesystem) of a file, we need to compare superblock (because there 
+//             may be multiple ext2/3/4 filesystems, which have same inode space) and 'inode number';
+//but for bdev fs: the identity of a file (a device) is 'dev_t'; to find inode (in 'dev fs') of a file 
+//             (device), we need to compare the 'dev_t' (we don't need to compare the superblock because 
+//             there's only one 'dev fs'); bdev_test is the compare-function;
 struct block_device *bdget(dev_t dev)
 {
 	struct block_device *bdev;
@@ -567,7 +575,7 @@ struct block_device *bdget(dev_t dev)
 
   printk(KERN_DEBUG "YuanguoDbg func %s(): dev=%u\n", __func__, dev);
 
-  //Yuanguo: the inode returned here stands for a file in bdev fs (whose super block is blockdev_superblock)
+  //Yuanguo: the inode returned here stands for a file in 'bdev fs' (whose super block is blockdev_superblock)
   //         notice that the inode param of function bd_acquire stands for the device file in devtmpfs; e.g.
   //         inode=[ffff88013923e968 25008 devtmpfs 368 8388624 ffff880139c189c0];
 	inode = iget5_locked(blockdev_superblock, hash(dev),
@@ -688,6 +696,9 @@ void bdput(struct block_device *bdev)
 
 EXPORT_SYMBOL(bdput);
  
+
+//Yuanguo: the input inode stands for a file in devtmpfs (/dev);
+//      it allocates a bdev_inode struct, and returns its bdev;
 static struct block_device *bd_acquire(struct inode *inode)
 {
 	struct block_device *bdev;
@@ -1495,20 +1506,25 @@ EXPORT_SYMBOL(blkdev_get);
  * Pointer to block_device on success, ERR_PTR(-errno) on failure.
  */
 //Yuanguo:  
-//   the 3 functions are similar with one another (the goals are the same:
-//   return an open block device, but the input are different):
+//   the 3 functions are similar with one another, the goals are the same:
+//   return a block device that's opened, but the inputs are different:
 //
-//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
-//                                   see lookup_bdev() --> kern_path()
+//         blkdev_open        : input is inode-in-devtmpfs 
+//                                1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_get_by_path : input is a given path; 
+//                                1. lookup the inode-in-devtmpfs corresponding to the
+//                                   given path; see lookup_bdev() --> kern_path()
 //                                2. bdev = bd_acquire(inode-in-devtmpfs);
 //                                   see lookup_bdev() --> bd_acquire()
 //                                3. blkdev_get(bdev)
+//                          So, there's only one more step (step1) than blkdev_open
 //
-//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//         blkdev_get_by_dev  : input is the dev_t
+//                                1. bdev = bdget(dev);
 //                                2. blkdev_get(bdev)
 //
-//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
-//                                2. blkdev_get(bdev)
 struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
 					void *holder)
 {
@@ -1518,6 +1534,9 @@ struct block_device *blkdev_get_by_path(const char *path, fmode_t mode,
   printk(KERN_DEBUG "YuanguoDbg func %s(): path=%s\n", __func__, path);
 
   //Yuanguo: get block device based on path which looks like "/dev/sdb";
+  //   1. lookup the inode-in-devtmpfs corresponding to the
+  //      given path;
+  //   2. bdev = bd_acquire(inode-in-devtmpfs);
 	bdev = lookup_bdev(path);
 	if (IS_ERR(bdev))
 		return bdev;
@@ -1574,20 +1593,25 @@ EXPORT_SYMBOL(blkdev_get_by_path);
  * Pointer to block_device on success, ERR_PTR(-errno) on failure.
  */
 //Yuanguo:  
-//   the 3 functions are similar with one another (the goals are the same:
-//   return an open block device, but the input are different):
+//   the 3 functions are similar with one another, the goals are the same:
+//   return a block device that's opened, but the inputs are different:
 //
-//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
-//                                   see lookup_bdev() --> kern_path()
+//         blkdev_open        : input is inode-in-devtmpfs 
+//                                1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_get_by_path : input is a given path; 
+//                                1. lookup the inode-in-devtmpfs corresponding to the
+//                                   given path; see lookup_bdev() --> kern_path()
 //                                2. bdev = bd_acquire(inode-in-devtmpfs);
 //                                   see lookup_bdev() --> bd_acquire()
 //                                3. blkdev_get(bdev)
+//                          So, there's only one more step (step1) than blkdev_open
 //
-//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//         blkdev_get_by_dev  : input is the dev_t
+//                                1. bdev = bdget(dev);
 //                                2. blkdev_get(bdev)
 //
-//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
-//                                2. blkdev_get(bdev)
 struct block_device *blkdev_get_by_dev(dev_t dev, fmode_t mode, void *holder)
 {
 	struct block_device *bdev;
@@ -1607,20 +1631,25 @@ EXPORT_SYMBOL(blkdev_get_by_dev);
 
 
 //Yuanguo:  
-//   the 3 functions are similar with one another (the goals are the same:
-//   return an open block device, but the input are different):
+//   the 3 functions are similar with one another, the goals are the same:
+//   return a block device that's opened, but the inputs are different:
 //
-//         blkdev_get_by_path :   1. get inode (in devtmpfs) corresponding to path
-//                                   see lookup_bdev() --> kern_path()
+//         blkdev_open        : input is inode-in-devtmpfs 
+//                                1. bdev = bd_acquire(inode-in-devtmpfs);
+//                                2. blkdev_get(bdev)
+//
+//         blkdev_get_by_path : input is a given path; 
+//                                1. lookup the inode-in-devtmpfs corresponding to the
+//                                   given path; see lookup_bdev() --> kern_path()
 //                                2. bdev = bd_acquire(inode-in-devtmpfs);
 //                                   see lookup_bdev() --> bd_acquire()
 //                                3. blkdev_get(bdev)
+//                          So, there's only one more step (step1) than blkdev_open
 //
-//         blkdev_get_by_dev  :   1. bdev = bdget(dev);
+//         blkdev_get_by_dev  : input is the dev_t
+//                                1. bdev = bdget(dev);
 //                                2. blkdev_get(bdev)
 //
-//         blkdev_open        :   1. bdev = bd_acquire(inode-in-devtmpfs);
-//                                2. blkdev_get(bdev)
 static int blkdev_open(struct inode * inode, struct file * filp)
 {
 	struct block_device *bdev;
@@ -1869,6 +1898,11 @@ EXPORT_SYMBOL(ioctl_by_bdev);
  * namespace if possible and return it.  Return ERR_PTR(error)
  * otherwise.
  */
+//Yuanguo: get block device based on path which looks like "/dev/sdb";
+//   1. lookup the inode-in-devtmpfs corresponding to the
+//      given path;
+//   2. bdev = bd_acquire(inode-in-devtmpfs);
+//see blkdev_open, blkdev_get_by_path, blkdev_get_by_dev
 struct block_device *lookup_bdev(const char *pathname)
 {
 	struct block_device *bdev;
