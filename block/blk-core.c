@@ -284,11 +284,41 @@ inline void __blk_run_queue_uncond(struct request_queue *q)
 	q->request_fn_active++;
 
   //Yuanguo: request_fn is a func pointer, what function does it point to?
-  //   take hd driver (see drivers/block/hd.c) for example: 
-  //   in function hd_init(), 
-  //          hd_queue = blk_init_queue(do_hd_request, &hd_lock);
-  //   so, for hd driver, q->request_fn points to do_hd_request.
+  //   1. hd driver (see drivers/block/hd.c): 
+  //            hd_init -->
+  //            hd_queue = blk_init_queue(do_hd_request, &hd_lock);
+  //      so, for hd driver, q->request_fn points to do_hd_request.
+  //   2. scsi driver(see drivers/scsi/scsi_lib.c):
+  //            scsi_alloc_sdev(...)        //in drivers/scsi/scsi_scan.c 
+  //            {
+  //                ......
+  //                if (shost_use_blk_mq(shost))
+  //                  ...
+  //                else
+  //                	sdev->request_queue = scsi_alloc_queue(sdev);
+  //                	                      {
+	//                                          __scsi_alloc_queue(sdev->host, scsi_request_fn);
+  //                	                        {
+  //                                            blk_init_queue(request_fn, NULL);                  //request_fn = scsi_request_fn
+  //                	                          {
+	//                                              blk_init_queue_node(rfn, lock, NUMA_NO_NODE);    //rfn = scsi_request_fn
+  //                	                            {
+	//                                                blk_init_allocated_queue(uninit_q, rfn, lock);  //rfn = scsi_request_fn
+  //                	                              {
+	//                                                  q->request_fn		= rfn;
+  //                	                                blk_queue_make_request(q, blk_queue_bio);  //case-3
+  //                	                              }
+  //                	                            }
+  //                	                          }
+  //                	                        }
+  //                	                      }
+  //                ......
+  //            }
+  //      so, for iscsi driver, q->request_fn points to scsi_request_fn.
   //Yuanguo: thus, here goes to the driver ...
+  //
+  // q->make_request_fn(): put  bio into the q;
+  // q->request_fn()     : consume request from the q;
 	q->request_fn(q);
 
 	q->request_fn_active--;
@@ -1729,7 +1759,7 @@ get_rq:
 	} else {
 		spin_lock_irq(q->queue_lock);
 
-    //Yuanguo: put req in q;
+    //Yuanguo: put req in request_queue q;
 		add_acct_request(q, req, where);
 
     //Yuanguo: run the request_queue now...
@@ -2059,21 +2089,23 @@ void generic_make_request(struct bio *bio)
     //      	                      }
 	  //      else
 	  //      	sdev->request_queue = scsi_alloc_queue(sdev);
-    //      	                      {
-    //      	                        __scsi_alloc_queue
-    //      	                        {
-    //      	                          blk_init_queue
-    //      	                          {
-    //      	                            blk_init_queue_node
-    //      	                            {
-    //      	                              blk_init_allocated_queue
-    //      	                              {
-    //      	                                blk_queue_make_request(q, blk_queue_bio);  //case-3
-    //      	                              }
-    //      	                            }
-    //      	                          }
-    //      	                        }
-    //      	                      }
+    //                	            {
+	  //                                __scsi_alloc_queue(sdev->host, scsi_request_fn);
+    //                	              {
+    //                                  blk_init_queue(request_fn, NULL);                  //request_fn = scsi_request_fn
+    //                	                {
+	  //                                    blk_init_queue_node(rfn, lock, NUMA_NO_NODE);    //rfn = scsi_request_fn
+    //                	                  {
+	  //                                      blk_init_allocated_queue(uninit_q, rfn, lock);  //rfn = scsi_request_fn
+    //                	                    {
+	  //                                        q->request_fn		= rfn;
+    //                	                      blk_queue_make_request(q, blk_queue_bio);  //case-3
+    //                	                    }
+    //                	                  }
+    //                	                }
+    //                	              }
+    //                	            }
+    //
     //      ......
     //  }
     //
@@ -2122,6 +2154,9 @@ void generic_make_request(struct bio *bio)
     //multi-queue was only in nvme driver. In 3.19, multi-queue is moved from
     //nvme driver to the separate 'multi-queue block layer'. So SATA SDD or even
     //HDD can also benefit from it.
+    //
+    // q->make_request_fn(): put  bio into the q;
+    // q->request_fn()     : consume request from the q;
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);

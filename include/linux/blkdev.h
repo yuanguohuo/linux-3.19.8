@@ -336,8 +336,8 @@ struct request_queue {
 	 */
 	struct request_list	root_rl;
 
-	request_fn_proc		*request_fn;
-	make_request_fn		*make_request_fn;
+	request_fn_proc		*request_fn;       //Yuanguo: consume request from 'this queue'
+	make_request_fn		*make_request_fn;  //Yuanguo: put bio into the 'this queue'
 	prep_rq_fn		*prep_rq_fn;
 	unprep_rq_fn		*unprep_rq_fn;
 	merge_bvec_fn		*merge_bvec_fn;
