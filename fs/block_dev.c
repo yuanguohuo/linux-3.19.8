@@ -610,8 +610,11 @@ struct block_device *bdget(dev_t dev)
     //                     |  | struct block_device *i_bdev ---+--+---------+
     //                     |  |                                |  |
     //                     |  |                                |  |
-    //                     |  |  struct address_space i_data   |  |
-    //                     |  |  +-------------------------+   |  |
+    //                     |  |struct address_space	*i_mapping-+--+---------+
+    //                     |  |                                |  |         |
+    //                     |  |                                |  |         |
+    //                     |  |  struct address_space i_data   |  |         |
+    //                     |  |  +-------------------------+ <-+--+---------+
     //                     |  |  |                         |   |  |
     //                     |  |  |     a_ops --------------+---+--+---->def_blk_aops
     //                     |  |  |     backing_dev_info ---+---+--+---->default_backing_dev_info
@@ -756,8 +759,11 @@ static struct block_device *bd_acquire(struct inode *inode)
       //                       |  | struct block_device *i_bdev ---+--+---------+
       //                       |  |                                |  |
       //                       |  |                                |  |
-      //                       |  |  struct address_space i_data   |  |
-      //                       |  |  +-------------------------+   |  |
+      //                       |  |struct address_space	*i_mapping-+--+---------+
+      //                       |  |                                |  |         |
+      //                       |  |                                |  |         |
+      //                       |  |  struct address_space i_data   |  |         |
+      //                       |  |  +-------------------------+ <-+--+---------+
       //                       |  |  |                         |   |  |
       //                       |  |  |     a_ops --------------+---+--+---->def_blk_aops
       //                       |  |  |     backing_dev_info    |   |  |
@@ -770,7 +776,7 @@ static struct block_device *bd_acquire(struct inode *inode)
       //                       +--------------------------------------+
 
 			inode->i_bdev = bdev;
-			inode->i_mapping = bdev->bd_inode->i_mapping;
+			inode->i_mapping = bdev->bd_inode->i_mapping; //Yuanguo: i_mapping of vfs_inode points to i_data of itself, but i_mapping of inode does not!
 			list_add(&inode->i_devices, &bdev->bd_inodes);
 		}
 		spin_unlock(&bdev_lock);
@@ -1280,6 +1286,8 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 
 			ret = 0;
 
+      //Yuanguo: disk->fops->open is a block device method, it is a custom function defined by
+      //         the block device driver to perform any specific last-minute initialization.
       //Yuanguo: for scsi disk, disk->fops->open is drivers/scsi/sd.c : sd_open ?
 			if (disk->fops->open) {
 				ret = disk->fops->open(bdev, mode);
@@ -1312,10 +1320,9 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 			 * The latter is necessary to prevent ghost
 			 * partitions on a removed medium.
 			 */
-      //Yuanguo: 
-      //  if the block device was re-partitioned
-      //    1. rescan partitions if open succeeded;
-      //    2. invalidate partitions (???) if open failed with -ENOMEDIUM;
+      //Yuanguo: rescan_partitions()
+      //    1. scan the partition table 
+      //    2. update the partition descriptors.  
 			if (bdev->bd_invalidated) {
 				if (!ret)
 					rescan_partitions(disk, bdev);
@@ -1357,9 +1364,15 @@ static int __blkdev_get(struct block_device *bdev, fmode_t mode, int for_part)
 		if (bdev->bd_contains == bdev) {
 			ret = 0;
 
+      //Yuanguo: disk->fops->open is a block device method, it is a custom function defined by
+      //         the block device driver to perform any specific last-minute initialization.
       //Yuanguo: for scsi disk, disk->fops->open is drivers/scsi/sd.c : sd_open ?
 			if (bdev->bd_disk->fops->open)
 				ret = bdev->bd_disk->fops->open(bdev, mode);
+
+      //Yuanguo: rescan_partitions()
+      //    1. scan the partition table 
+      //    2. update the partition descriptors.  
 			/* the same as first opener case, read comment there */
 			if (bdev->bd_invalidated) {
 				if (!ret)

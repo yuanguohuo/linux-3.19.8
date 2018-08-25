@@ -260,7 +260,9 @@ static struct inode *alloc_inode(struct super_block *sb)
 	if (!inode)
 		return NULL;
 
-	if (unlikely(inode_init_always(sb, inode))) { //Yuanguo: inode initialization.
+  //Yuanguo: inode initialization; 
+  //    inode->i_mapping is set to &inode->i_data here;
+	if (unlikely(inode_init_always(sb, inode))) {
 		if (inode->i_sb->s_op->destroy_inode)
 			inode->i_sb->s_op->destroy_inode(inode);
 		else
