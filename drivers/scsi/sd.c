@@ -2964,6 +2964,8 @@ static int sd_probe(struct device *dev)
 	int index;
 	int error;
 
+  printk("Yuanguo: sd_probe enter\n");
+
 	scsi_autopm_get_device(sdp);
 	error = -ENODEV;
 	if (sdp->type != TYPE_DISK && sdp->type != TYPE_MOD && sdp->type != TYPE_RBC)
@@ -3240,6 +3242,8 @@ static int __init init_sd(void)
 {
 	int majors = 0, i, err;
 
+  printk("Yuanguo: init_sd: sd driver entry point\n");
+
 	SCSI_LOG_HLQUEUE(3, printk("init_sd: sd driver entry point\n"));
 
 	for (i = 0; i < SD_MAJORS; i++) {
@@ -3271,6 +3275,8 @@ static int __init init_sd(void)
 		err = -ENOMEM;
 		goto err_out_cache;
 	}
+
+  printk("Yuanguo: init_sd, scsi_register_driver\n");
 
 	err = scsi_register_driver(&sd_template.gendrv);
 	if (err)
