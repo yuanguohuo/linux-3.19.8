@@ -240,6 +240,10 @@ EXPORT_SYMBOL_GPL(disk_map_sector_rcu);
  * Can be deleted altogether. Later.
  *
  */
+//Yuanguo: major_names is like a hashtable:
+//    major_names[0] : head of blk_major_name linked list, whose major%255 == 0 
+//    major_names[1] : head of blk_major_name linked list, whose major%255 == 1 
+//    ......
 static struct blk_major_name {
 	struct blk_major_name *next;
 	int major;

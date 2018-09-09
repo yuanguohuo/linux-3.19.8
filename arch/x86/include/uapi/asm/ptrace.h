@@ -57,9 +57,17 @@ struct pt_regs {
 	unsigned long rdx;
 	unsigned long rsi;
 	unsigned long rdi;
+
+  //Yuanguo: for exception: 
+  //             if has error code, orig_rax is the error code and it's pushed/saved by hardware (CPU);
+  //             else, push 0 by software;
+  //         for interupt:
+  //             push VectorNo - 256, by software;
 	unsigned long orig_rax;
+
 /* end of arguments */
 /* cpu exception frame or undefined */
+  //Yuanguo: the following are pushed/saved by hardware (CPU), not software;
 	unsigned long rip;
 	unsigned long cs;
 	unsigned long eflags;

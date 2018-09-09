@@ -91,9 +91,16 @@ struct backing_dev_info {
 	unsigned int min_ratio;
 	unsigned int max_ratio, max_prop_frac;
 
+  //Yuanguo: the writeback workqueue and dirty inodes;
 	struct bdi_writeback wb;  /* default writeback info for this bdi */
 	spinlock_t wb_lock;	  /* protects work_list & wb.dwork scheduling */
 
+  //Yuanguo: head of a 'struct wb_writeback_work' list;
+  //  if there is work in 'struct bdi_writeback wb', a 'struct wb_writeback_work'
+  //  will be created and linked in this list; see:
+  //       wakeup_flusher_threads -->
+  //       __bdi_start_writeback   -->
+  //       bdi_queue_work
 	struct list_head work_list;
 
 	struct device *dev;
