@@ -123,8 +123,11 @@ EXPORT_SYMBOL(__wait_on_buffer);
 static void
 __clear_page_buffers(struct page *page)
 {
+  //Yuanguo: clear PG_private flag
 	ClearPagePrivate(page);
+  //Yuanguo: set private to NULL;
 	set_page_private(page, 0);
+  //Yuanguo: decrease the page's usage counter;
 	page_cache_release(page);
 }
 
@@ -206,7 +209,11 @@ __find_get_block_slow(struct block_device *bdev, sector_t block)
 	struct page *page;
 	int all_mapped = 1;
 
+  //Yuanguo: for example, if a page is 4K and a block is 1K. block = x, the 
+  //   page index is x/4;
 	index = block >> (PAGE_CACHE_SHIFT - bd_inode->i_blkbits);
+
+  //Yuanguo: find the page containg the block;
 	page = find_get_page_flags(bd_mapping, index, FGP_ACCESSED);
 	if (!page)
 		goto out;
@@ -216,6 +223,8 @@ __find_get_block_slow(struct block_device *bdev, sector_t block)
 		goto out_unlock;
 	head = page_buffers(page);
 	bh = head;
+  //Yuanguo: scan the list of buffer heads linked to the buffer page, looking 
+  //  for the block having logical block number equal to block.
 	do {
 		if (!buffer_mapped(bh))
 			all_mapped = 0;
@@ -246,6 +255,8 @@ __find_get_block_slow(struct block_device *bdev, sector_t block)
 	}
 out_unlock:
 	spin_unlock(&bd_mapping->private_lock);
+  //Yuanguo: decrease the _count field of the page descriptor, it was increased 
+  //by find_get_page_flags;
 	page_cache_release(page);
 out:
 	return ret;
@@ -971,6 +982,20 @@ init_page_buffers(struct page *page, struct block_device *bdev,
  *
  * This is used purely for blockdev mappings.
  */
+
+//Yuanguo:
+//  1. The radix tree of the block device does not include a page containing 
+//     the data of the block: in this case a new page descriptor must be added 
+//     to the radix tree.
+//  2. The radix tree of the block device includes a page containing the data 
+//     of the block, but this page is not a buffer page: in this case new buffer 
+//     heads must be allocated and linked to the page, thus transforming it into 
+//     a block device buffer page.
+//  3. The radix tree of the block device includes a buffer page containing the 
+//     data of the block, but the page has been split in blocks of size different 
+//     from the size of the requested block: in this case the old buffer heads (
+//     Yuanguo: only buffer heads, not the page) must be released, and a new set 
+//     of buffer heads must be allocated and linked to the page.
 static int
 grow_dev_page(struct block_device *bdev, sector_t block,
 	      pgoff_t index, int size, int sizebits, gfp_t gfp)
@@ -992,23 +1017,50 @@ grow_dev_page(struct block_device *bdev, sector_t block,
 	 */
 	gfp_mask |= __GFP_NOFAIL;
 
+  //Yuanguo: looks for the page in the page cache and, if necessary, 
+  //   inserts a new page in the cache.
 	page = find_or_create_page(inode->i_mapping, index, gfp_mask);
 	if (!page)
 		return ret;
 
 	BUG_ON(!PageLocked(page));
 
+  //Yuanguo:
+  //
+  //     struct page            struct buffer_head         struct buffer_head
+  //+-------------------+  +-> +-------------------+  +-> +-------------------+
+  //|   ......          |  |   |    ......         |  |   |    ......         | 
+  //|   private  -------+--+   |    b_this_page ---+--+   |    b_this_page ---+-->...
+  //|   ......          |      |    ......         |      |    ......         |  
+  //+-------------------+      +-------------------+      +-------------------+
+  //
+  //so, if this 'struct page' is a buffer cache, it's field 'private' should 
+  //not be NULL
 	if (page_has_buffers(page)) {
+    //Yuanguo: field 'private' not NULL, so the page 'was' a buffer cache previously;
 		bh = page_buffers(page);
 		if (bh->b_size == size) {
+      //Yuanguo: it was a buffer cache previously, and the size is the same, so 
+      //   it's a valid buffer cache;
 			end_block = init_page_buffers(page, bdev,
 						(sector_t)index << sizebits,
 						size);
 			goto done;
 		}
+
+    //Yuanguo: the page was a buffer cache previously, but the size does not match,
+    //   try to free the buffer heads attached to the page;
+    //       if fail to free, goto failed; 
+    //       if succeed to free, continue to alloc_page_buffers;
 		if (!try_to_free_buffers(page))
 			goto failed;
 	}
+
+  //Yuanguo: now, we have a page, but it is not a buffer cache yet;
+  //   1. the page may be allocated just now;
+  //   2. the page may be in the page cache before, but it was not buffer cache;
+  //   3. the page may be in the page cache and it was buffer cache, but size
+  //      not match, so the buffer heads was freed just now;
 
 	/*
 	 * Allocate some buffers for this page
@@ -1039,11 +1091,27 @@ failed:
  * Create buffers for the specified block device block's page.  If
  * that page was dirty, the buffers are set dirty also.
  */
+//Yuanguo: 
+//  param bdev  : the block_device descriptor;
+//  param block : the position of the block inside the block device;
+//  param size  : the block size;
 static int
 grow_buffers(struct block_device *bdev, sector_t block, int size, gfp_t gfp)
 {
 	pgoff_t index;
 	int sizebits;
+
+  //Yuanguo:
+  //block (block number in the device) ==>  index(the page index in radix tree)
+  //
+  //  1. block size = 4K; PAGE_SIZE = 4K;  1 page contains 1 block;
+  //     sizebits = 0
+  //     index    = block;
+  //     1 page contains 1 block, so corresponding page-index = block-number
+  //  2. block size = 1K; PAGE_SIZE = 4K;  1 page contains 4 blocks;
+  //     sizebits = 2 
+  //     index    = block / 4;
+  //     1 page contains 4 blocks, so corresponding page-index = block-number/4
 
 	sizebits = -1;
 	do {
@@ -1337,14 +1405,30 @@ lookup_bh_lru(struct block_device *bdev, sector_t block, unsigned size)
  * it in the LRU and mark it as accessed.  If it is not present then return
  * NULL
  */
+//Yuanguo: 
+//  __find_get_block(): find and return the buffer head; if not exist, return NULL;
+//  __getblk()        : never fail. call __find_get_block(), and if buffer head is
+//                      found, return it; otherwise, call grow_buffers to allocate. 
+//                      Notice that the block buffer returned does not necessarily 
+//                      contain valid data, the BH_Uptodate flag of the buffer head 
+//                      might be cleared.
+//  __bread()         : call __getblk_gfp() function (equals to __getblk()). if the 
+//                      returned buffer contains valid data (the falg BH_Uptodate is 
+//                      set), return the buffer head; otherwise, call submit_bh() to 
+//                      read. 
 struct buffer_head *
 __find_get_block(struct block_device *bdev, sector_t block, unsigned size)
 {
+  //Yuanguo: checks whether the LRU block cache array of the executing CPU includes 
+  //  a buffer head whose b_bdev, b_blocknr, and b_size fields are equal to bdev, 
+  //  block, and size, respectively.
 	struct buffer_head *bh = lookup_bh_lru(bdev, block, size);
 
 	if (bh == NULL) {
 		/* __find_get_block_slow will mark the page accessed */
 		bh = __find_get_block_slow(bdev, block);
+
+    //Yuanguo: put the buffer head in the per CPU LRU;
 		if (bh)
 			bh_lru_install(bh);
 	} else
@@ -3033,8 +3117,12 @@ int _submit_bh(int rw, struct buffer_head *bh, unsigned long bio_flags)
 	bio->bi_vcnt = 1;
 	bio->bi_iter.bi_size = bh->b_size;
 
+  //Yuanguo: this bio stands for (or wraps) a buffer head, so when the bio is 
+  //  finished, bi_end_io (end_bio_bh_io_sync) is called, and which in turn calls
+  //  buffer head's b_end_io function;
 	bio->bi_end_io = end_bio_bh_io_sync;
 	bio->bi_private = bh;
+
 	bio->bi_flags |= bio_flags;
 
 	/* Take care of bh's that straddle the end of the device */
@@ -3211,25 +3299,38 @@ drop_buffers(struct page *page, struct buffer_head **buffers_to_free)
 	do {
 		if (buffer_write_io_error(bh) && page->mapping)
 			set_bit(AS_EIO, &page->mapping->flags);
+
+    //Yuanguo: if BH_Dirty or BH_Locked flag is set, goto failed.
 		if (buffer_busy(bh))
 			goto failed;
+
 		bh = bh->b_this_page;
 	} while (bh != head);
 
 	do {
 		struct buffer_head *next = bh->b_this_page;
 
+    //Yuanguo: If the buffer head is inserted in a list of indirect buffers, 
+    //  remove it from the list.
 		if (bh->b_assoc_map)
 			__remove_assoc_queue(bh);
 		bh = next;
 	} while (bh != head);
+
 	*buffers_to_free = head;
+  //Yuanguo: clear PG_private flag of the page descriptor; set the private field
+  //   to NULL and decreases the page's usage counter;
 	__clear_page_buffers(page);
 	return 1;
 failed:
 	return 0;
 }
 
+//Yuanguo: only buffer heads are freed, the page itself is not released, right?
+//  case1. it seems right in grow_dev_page() -> try_to_free_buffers();
+//  case2. it seems not right in try_to_release_page() -> try_to_free_buffers();
+//It seems that in case1, page's usage counter (page->_count) >= 2 (increased in
+//find_or_create_page), so decrement in this function will not make it become 0;
 int try_to_free_buffers(struct page *page)
 {
 	struct address_space * const mapping = page->mapping;
@@ -3237,6 +3338,9 @@ int try_to_free_buffers(struct page *page)
 	int ret = 0;
 
 	BUG_ON(!PageLocked(page));
+
+  //Yuanguo: if PG_writeback flag of the page is set, return failure, because
+  //   the page is being written back to disk and release is impossible.
 	if (PageWriteback(page))
 		return 0;
 
@@ -3246,6 +3350,15 @@ int try_to_free_buffers(struct page *page)
 	}
 
 	spin_lock(&mapping->private_lock);
+  
+  //Yuanguo:
+  //      1. if some buffer head has the BH_Dirty or BH_Locked flag set, terminate 
+  //         by returning 0 (failure): it is not possible to release the buffers.
+  //      2. if a buffer head is inserted in a list of indirect buffers, remove it 
+  //         from the list.
+  //      3. clear PG_private flag of the page descriptor; set the private field to
+  //         NULL and decreases the page's usage counter (Yuanguo: will the usage 
+  //         counter become zero here?);
 	ret = drop_buffers(page, &buffers_to_free);
 
 	/*
@@ -3262,6 +3375,7 @@ int try_to_free_buffers(struct page *page)
 	 * to synchronise against __set_page_dirty_buffers and prevent the
 	 * dirty bit from being lost.
 	 */
+  //Yuanguo: 4. clears the PG_dirty flag;
 	if (ret)
 		cancel_dirty_page(page, PAGE_CACHE_SIZE);
 	spin_unlock(&mapping->private_lock);
@@ -3269,6 +3383,7 @@ out:
 	if (buffers_to_free) {
 		struct buffer_head *bh = buffers_to_free;
 
+    //Yuanguo: 5. invoke free_buffer_head() repeatedly
 		do {
 			struct buffer_head *next = bh->b_this_page;
 			free_buffer_head(bh);

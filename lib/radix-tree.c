@@ -573,6 +573,12 @@ void *__radix_tree_lookup(struct radix_tree_root *root, unsigned long index,
   //Yuanguo: node is root->rnode now, whose height is the tree height.
 	height = node->path & RADIX_TREE_HEIGHT_MASK;
 
+  //   tree-height     max-index-supported       num-of-pages
+  //   0               0                         1     //root->rnode is direct
+  //   1               64^1 - 1                  64
+  //   2               64^2 - 1                  64^2
+  //   3               64^3 - 1                  64^3 
+  //   ......
   //Yuanguo: index > max index current tree height may have, return NULL.
 	if (index > radix_tree_maxindex(height))
 		return NULL;
@@ -675,6 +681,15 @@ void *radix_tree_tag_set(struct radix_tree_root *root,
 	slot = indirect_to_ptr(root->rnode);
 	shift = (height - 1) * RADIX_TREE_MAP_SHIFT;
 
+  //Yuanguo:
+  //  index = 000101 000111 010000 000010 b    0x05071002
+  //  height = 4
+  //  shift =  18
+  //then,
+  //   A = 5-th slot of root->rnode; set A's flag
+  //   B = 7-th slot of A;           set B's flag
+  //   C = 16-th slot of B;          set C's flag
+  //   D = 2-th slot of C;           set D's flag
 	while (height > 0) {
 		int offset;
 
@@ -1516,6 +1531,19 @@ radix_tree_node_ctor(void *arg)
 	INIT_LIST_HEAD(&node->private_list);
 }
 
+//Yuanguo:
+//RADIX_TREE_MAP_SHIFT  = 6
+//RADIX_TREE_INDEX_BITS = 64
+//BITS_PER_LONG = 64
+//   height       return(max index)     num of pages
+//   0            0                     1   //root->rnode is direct, points to data
+//   1            64^1 - 1              64
+//   2            64^2 - 1              64^2
+//   3            64^3 - 1              64^3 
+//   ......
+//   9            64^9 - 1              64^9 
+//   10           64^10 - 1             64^10
+//   11           2^64 - 1              2^64
 static __init unsigned long __maxindex(unsigned int height)
 {
 	unsigned int width = height * RADIX_TREE_MAP_SHIFT;

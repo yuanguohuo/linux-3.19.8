@@ -583,6 +583,26 @@ struct inode {
 
 	const struct inode_operations	*i_op;
 	struct super_block	*i_sb;
+
+  //Yuanguo: i_mapping always points to "the real address_space"
+  //     for a regular file, the real address_space is the i_data 
+  //     field below;
+  //
+  //     for devtmpfs, the real address_space is the i_data field
+  //     of the bdev_inode, see bd_acquire()
+  //
+  //         inode-in-devtmpfs             bdev_inode
+  //      +--------------------+      +-----------------------------+
+  //      |     i_mapping -----+---+  |   struct block_device bdev  |
+  //      |     ......         |   |  |   struct inode vfs_inode    |
+  //      |     i_data         |   |  | +-------------------------+ |
+  //      +--------------------+   |  | |                         | |
+  //                               |  | |  i_mapping  -----+      | |
+  //                               |  | |  ......          |      | |
+  //                               +--+-+->i_data  <-------+      | |
+  //                                  | |  ......                 | |
+  //                                  | +-------------------------+ |
+  //                                  +-----------------------------+
 	struct address_space	*i_mapping;
 
 #ifdef CONFIG_SECURITY

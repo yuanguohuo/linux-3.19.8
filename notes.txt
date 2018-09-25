@@ -182,6 +182,26 @@ blk_finish_request   -->  blk_account_io_done  --> part_round_stats  --> part_ro
 
 
 
++----------------------------------- buffer cache (block cache)----------------------------------+
+|                                               |                                                |
+| __bread                                       | ll_rw_block(rw, nr, *bhs[])                    |
+|    A. bh = __getblk_gfp                       |  for each block in bhs                         |
+|        1. bh = __find_get_block               |    A. bh->b_end_io = end_buffer_read_sync      |
+|        2. if bh != NULL, return bh;           |                   or end_buffer_write_sync     |
+|        3. call grow_buffers to alloc,         |    B. call submit_bh                           |                  
+|           and return (data not read)          |       1. prepare bio struct;                   | 
+|    B. if bh.BH_Uptodate is set (data is read  |          bio->bi_end_io = end_bio_bh_io_sync   |    
+|       and uptodate), return bh;               |          ......                                |
+|    C. bh->b_end_io = end_buffer_read_sync     |       2. call submit_bio() of the              |
+|    D. call submit_bh(READ, bh) to read data   |          generic block layer;                  |
+|        1. prepare bio struct;                 |                                                |
+|           bio->bi_end_io = end_bio_bh_io_sync |                                                |
+|           ......                              |                                                |
+|        2. call submit_bio() of the            |                                                |
+|           generic block layer;                |                                                |
+|                                               |                                                |
+
+------------------------------------------------------------Generic Block Layer----------------------------------------------------------
 
 1. Generic Block Layer
 
@@ -246,6 +266,7 @@ submit_bio(rw, bio)             |     generic_make_request(bio)
                                        
 
 
+---------------------------------------------------------------------------------------------------------------------
 
 2. IO Scheduler Layer
 

@@ -371,6 +371,17 @@ static inline struct buffer_head *getblk_unmovable(struct block_device *bdev,
 	return __getblk_gfp(bdev, block, size, 0);
 }
 
+//Yuanguo: 
+//  __find_get_block(): find and return the buffer head; if not exist, return NULL;
+//  __getblk()        : never fail. call __find_get_block(), and if buffer head is
+//                      found, return it; otherwise, call grow_buffers to allocate. 
+//                      Notice that the block buffer returned does not necessarily 
+//                      contain valid data, the BH_Uptodate flag of the buffer head 
+//                      might be cleared.
+//  __bread()         : call __getblk_gfp() function (equals to __getblk()). if the 
+//                      returned buffer contains valid data (the falg BH_Uptodate is 
+//                      set), return the buffer head; otherwise, call submit_bh() to 
+//                      read. 
 static inline struct buffer_head *__getblk(struct block_device *bdev,
 					   sector_t block,
 					   unsigned size)
@@ -388,6 +399,17 @@ static inline struct buffer_head *__getblk(struct block_device *bdev,
  *  The page cache is allocated from movable area so that it can be migrated.
  *  It returns NULL if the block was unreadable.
  */
+//Yuanguo: 
+//  __find_get_block(): find and return the buffer head; if not exist, return NULL;
+//  __getblk()        : never fail. call __find_get_block(), and if buffer head is
+//                      found, return it; otherwise, call grow_buffers to allocate. 
+//                      Notice that the block buffer returned does not necessarily 
+//                      contain valid data, the BH_Uptodate flag of the buffer head 
+//                      might be cleared.
+//  __bread()         : call __getblk_gfp() function (equals to __getblk()). if the 
+//                      returned buffer contains valid data (the falg BH_Uptodate is 
+//                      set), return the buffer head; otherwise, call submit_bh() to 
+//                      read. 
 static inline struct buffer_head *
 __bread(struct block_device *bdev, sector_t block, unsigned size)
 {

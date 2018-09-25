@@ -1024,6 +1024,10 @@ repeat:
 		}
 
     //Yuanguo: inc page->_count? seems complicated due to RCU ...
+    //  lookup-side (eg. find_get_page) has the following pattern:
+    //     1. find page in radix tree
+    //     2. conditionally increment refcount
+    //     3. check the page is still in pagecache (if no, goto 1)
 		if (!page_cache_get_speculative(page))
 			goto repeat;
 
@@ -2761,11 +2765,16 @@ int try_to_release_page(struct page *page, gfp_t gfp_mask)
 	struct address_space * const mapping = page->mapping;
 
 	BUG_ON(!PageLocked(page));
+
+  //Yuanguo: if PG_writeback flag of the page is set, return failure, because
+  //   the page is being written back to disk and release is impossible.
 	if (PageWriteback(page))
 		return 0;
 
+  //Yuanguo: the releasepage is usually not defined for block devices;
 	if (mapping && mapping->a_ops->releasepage)
 		return mapping->a_ops->releasepage(page, gfp_mask);
+
 	return try_to_free_buffers(page);
 }
 
