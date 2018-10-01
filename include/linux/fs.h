@@ -624,9 +624,9 @@ struct inode {
 	};
 	dev_t			i_rdev;
 	loff_t			i_size;
-	struct timespec		i_atime;
-	struct timespec		i_mtime;
-	struct timespec		i_ctime;
+	struct timespec		i_atime;  //Yuanguo: time of last file access;
+	struct timespec		i_mtime;  //Yuanguo: time of last file write;
+	struct timespec		i_ctime;  //Yuanguo: time of last inode change; NOT time-of-create !!!
 	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
 	unsigned short          i_bytes;
 	unsigned int		i_blkbits;
@@ -645,7 +645,11 @@ struct inode {
 	struct hlist_node	i_hash;
 	struct list_head	i_wb_list;	/* backing dev IO list */
 	struct list_head	i_lru;		/* inode LRU list */
+
+  //Yuanguo: a superblock has many inodes, they are linked as a list by 'i_sb_list', 
+  //   the head of the list is super_block::s_inodes; 
 	struct list_head	i_sb_list;
+
 	union {
 		struct hlist_head	i_dentry; //Yuanguo: list of hard links of this inode (list of dentries that reference this inode)
 		struct rcu_head		i_rcu;
@@ -1270,7 +1274,10 @@ struct super_block {
 #endif
 	const struct xattr_handler **s_xattr;
 
+  //Yuanguo: a superblock has many inodes, they are linked as a list by inode::i_sb_list, 
+  //   the head of the list is s_inodes;
 	struct list_head	s_inodes;	/* all inodes */
+
 	struct hlist_bl_head	s_anon;		/* anonymous dentries for (nfs) exporting */
 	struct list_head	s_mounts;	/* list of mounts; _not_ for fs use */
 	struct block_device	*s_bdev;

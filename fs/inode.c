@@ -261,7 +261,7 @@ static struct inode *alloc_inode(struct super_block *sb)
 		return NULL;
 
   //Yuanguo: inode initialization; 
-  //    inode->i_mapping is set to &inode->i_data here;
+  //    inode->i_mapping is set to &inode->i_data in inode_init_always();
 	if (unlikely(inode_init_always(sb, inode))) {
 		if (inode->i_sb->s_op->destroy_inode)
 			inode->i_sb->s_op->destroy_inode(inode);
@@ -952,8 +952,19 @@ struct inode *new_inode(struct super_block *sb)
 	spin_lock_prefetch(&inode_sb_list_lock);
 
 	inode = new_inode_pseudo(sb);
+
+  //Yuanguo: now, inode->i_sb is 'sb';
+  //   func inode_sb_list_add() adds inode->i_sb_list in inode->i_sb->s_inodes;
+  //
+  //      super_block 'sb'                      inode                            inode
+  // +---------------------------+  +----------------------------+  +----------------------------+
+  // | ......                    |  | ......                     |  | ......                     |
+  // | struct list_head	s_inodes-+--+>struct list_head i_sb_list-+--+->truct list_head i_sb_list-+---> ...
+  // | ......                    |  | ......                     |  | ......                     |
+  // +---------------------------+  +----------------------------+  +----------------------------+
 	if (inode)
 		inode_sb_list_add(inode);
+
 	return inode;
 }
 EXPORT_SYMBOL(new_inode);

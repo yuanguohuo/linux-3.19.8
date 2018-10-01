@@ -2,13 +2,30 @@
    connect to it; the console can be considerd as a special termial: startup
    messages, printk outputs are seen on console but not on termials;
 
-2. Now, /dev/tty1 to /dev/tty63 simulates those terminals, so they are called
-   virtual terminals; 
+2. Now: 
+   a. /dev/tty1 to /dev/tty63 simulates those terminals, so they are called
+      'virtual terminals' or 'controlling terminals';
 
-3. One of /dev/tty1 to /dev/tty6 can assume the role of console:
-            chvt N   //1 <= N <= 6 tty1-tty6 can be used as console;
+   b. any one of /dev/tty1 to /dev/tty6 can assume the role of console:
+            chvt N   //1 <= N <= 6,  let ttyN be the console;
+      for example, 'chvt 3', then /dev/console stands for /dev/tty3
 
-4. Moreover, we can have more than one consoles, one for each type:
+   c. /dev/console stands for the console;
+
+   d. /dev/tty0: alias of the tty who is assuming the role of console (e.g.
+      /dev/tty3); so it's the same as /dev/console;
+
+      for example: tty3 is assuming the role of console;
+          echo xx > /dev/tty3
+          echo xx > /dev/console
+          echo xx > /dev/tty0
+      will print 'xx' on screen;
+     
+   e. /dev/tty: termial of current process; notice that /dev/console and /dev/tty0 
+      are for the system, while /dev/tty is for current process;
+
+
+3. Moreover, we can have more than one consoles, one for each type:
             console=ttyS2,tty1   //kernel parameters
    in this case:
        a. startup messages, printk outputs are seen on both consoles;
