@@ -2803,6 +2803,12 @@ static int ext4_readpage(struct file *file, struct page *page)
 	return ret;
 }
 
+//Yuanguo: 
+//  pages: descriptors of empty memory pages that have been allocated to store the data that 
+//         will be read from disk. the 'index' field of each page descriptor (page->index) has
+//         been set as the index of the page in the file (the page's position in the file's 
+//         radix tree);
+//  nr_pages: how many pages in param 'pages';
 static int
 ext4_readpages(struct file *file, struct address_space *mapping,
 		struct list_head *pages, unsigned nr_pages)

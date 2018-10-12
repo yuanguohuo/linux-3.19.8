@@ -108,6 +108,12 @@ int read_cache_pages(struct address_space *mapping, struct list_head *pages,
 
 EXPORT_SYMBOL(read_cache_pages);
 
+//Yuanguo: 
+//  pages: descriptors of empty memory pages that have been allocated to store the data that 
+//         will be read from disk. the 'index' field of each page descriptor (page->index) has
+//         been set as the index of the page in the file (the page's position in the file's 
+//         radix tree);
+//  nr_pages: how many pages in param 'pages';
 static int read_pages(struct address_space *mapping, struct file *filp,
 		struct list_head *pages, unsigned nr_pages)
 {
@@ -157,6 +163,9 @@ out:
  *
  * Returns the number of pages requested, or the maximum amount of I/O allowed.
  */
+//Yuanguo: 
+//  offset     : the index of the starting page to read;
+//  nr_to_read : number of pages to read;
 int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			pgoff_t offset, unsigned long nr_to_read,
 			unsigned long lookahead_size)
@@ -167,18 +176,23 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	LIST_HEAD(page_pool);
 	int page_idx;
 	int ret = 0;
+
+  //Yuanguo: file size;
 	loff_t isize = i_size_read(inode);
 
 	if (isize == 0)
 		goto out;
 
+  //Yuanguo: consider the file as subdivided into pages (normally 4k):
+  //  'end_index' is the index of the last page of the file;
 	end_index = ((isize - 1) >> PAGE_CACHE_SHIFT);
 
 	/*
 	 * Preallocate as many pages as we will need.
 	 */
+  //Yuanguo: allocate the pages first;
 	for (page_idx = 0; page_idx < nr_to_read; page_idx++) {
-    //Yuanguo: offset is the 1st page # to read
+    //Yuanguo: 'page_offset' is the index of current page to read; 
 		pgoff_t page_offset = offset + page_idx;
 
 		if (page_offset > end_index)
@@ -211,7 +225,8 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * uptodate then the caller will launch readpage again, and
 	 * will then handle the error.
 	 */
-  //Yuanguo: ret>0, then we do have some pages to read from disk...
+  //Yuanguo: ret>0, then we do have some pages to read from disk. And, memory pages have been 
+  //  allocated, start the IO!
 	if (ret)
 		read_pages(mapping, filp, &page_pool, ret);
 	BUG_ON(!list_empty(&page_pool));
@@ -233,10 +248,14 @@ int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	while (nr_to_read) {
 		int err;
 
+    //Yuanguo: read 'this_chunk' pages (2MB) each time; 
+    //  if pagesize=4KB, read 512 pages each time;
 		unsigned long this_chunk = (2 * 1024 * 1024) / PAGE_CACHE_SIZE;
 
+    //Yuanguo: if we have only 400 pages to read, this_chunk = 400;
 		if (this_chunk > nr_to_read)
 			this_chunk = nr_to_read;
+
 		err = __do_page_cache_readahead(mapping, filp,
 						offset, this_chunk, 0);
 		if (err < 0)

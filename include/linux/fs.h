@@ -623,13 +623,13 @@ struct inode {
 		unsigned int __i_nlink;
 	};
 	dev_t			i_rdev;
-	loff_t			i_size;
+	loff_t			i_size;         //Yuanguo: file size;
 	struct timespec		i_atime;  //Yuanguo: time of last file access;
 	struct timespec		i_mtime;  //Yuanguo: time of last file write;
 	struct timespec		i_ctime;  //Yuanguo: time of last inode change; NOT time-of-create !!!
 	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
 	unsigned short          i_bytes;
-	unsigned int		i_blkbits;
+	unsigned int		i_blkbits;  //Yuanguo: if blocksize=1K, i_blkbits=10; if blocksize=4K, i_blkbits=12;
 	blkcnt_t		i_blocks;
 
 #ifdef __NEED_I_SIZE_ORDERED

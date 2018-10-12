@@ -1517,7 +1517,12 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 		struct iov_iter *iter, ssize_t written)
 {
 	struct address_space *mapping = filp->f_mapping;
+
+  //Yuanguo: the owner of the address_space object:
+  //   if the file being read is a block device file, the owner is an inode in the bdev special filesystem;
+  //   if the file being read is a regular file, the owner is the inode pointed to by filp->f_dentry->d_inode;
 	struct inode *inode = mapping->host;
+
 	struct file_ra_state *ra = &filp->f_ra;
 	pgoff_t index;
 	pgoff_t last_index;
@@ -1526,18 +1531,31 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 	unsigned int prev_offset;
 	int error = 0;
 
-  //Yuanguo: first page #
+  //Yuanguo: consider the file as subdivided into pages (normally 4k): 
+  //  'index' is the number of the page that includes the first requested byte.
 	index = *ppos >> PAGE_CACHE_SHIFT;
 
 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
 	prev_offset = ra->prev_pos & (PAGE_CACHE_SIZE-1);
 
-  //Yuanguo: last page #
+  //Yuanguo: consider the file as subdivided into pages (normally 4k): 
+  //  'last_index' is NOT the number of the page that includes the last requested byte, but
+  //  the number of the page after that page;
 	last_index = (*ppos + iter->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
-  //Yuanguo: offset within the first page
+
+  //Yuanguo: offset of the first requested byte within the first page;
 	offset = *ppos & ~PAGE_CACHE_MASK;
 
-	for (;;) {
+  //Yuanguo:
+  //             |<------requested------------>|
+  //     +----+----+----+----+     +----+----+----+----+----+----+
+  //     |    |    |    |    | ... |    |    |    |    |    |    |
+  //     +----+----+----+----+     +----+----+----+----+----+----+
+  //            ^                                   ^
+  //            |                                   |
+  //          index                             last_index
+
+	for (;;) {   //Yuanguo: a cycle to read all pages from index to last_index; one page per iteration;
 		struct page *page;
 		pgoff_t end_index;
 		loff_t isize;
@@ -1545,7 +1563,10 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 
 		cond_resched();
 find_page:
+    //Yuanguo: look up the page cache to find the descriptor of the page at 'index';
 		page = find_get_page(mapping, index);
+
+    //Yuanguo: 
 		if (!page) {
 			page_cache_sync_readahead(mapping,
 					ra, filp,
@@ -1554,6 +1575,7 @@ find_page:
 			if (unlikely(page == NULL))
 				goto no_cached_page;
 		}
+
 		if (PageReadahead(page)) {
 			page_cache_async_readahead(mapping,
 					ra, filp, page,

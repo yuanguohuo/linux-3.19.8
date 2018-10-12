@@ -160,11 +160,23 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	if (page_has_buffers(page))
 		goto confused;
 
+  //Yuanguo: index of the first requested block corresponding to the page relative to the beginning of the file
+  //  blocksize=1K, pagesize=4K. 
+  //       page-index=1, block-index=4; page-index=7, block-index=28 ...
+  //  blocksize=4K, pagesize=4K. 
+  //       page-index=1, block-index=1; page-index=7, block-index=7 ...
 	block_in_file = (sector_t)page->index << (PAGE_CACHE_SHIFT - blkbits);
+
+  //Yuanguo: index of the last requested block (exclusive) relative to the beginning of the file
 	last_block = block_in_file + nr_pages * blocks_per_page;
+
+  //Yuanguo: index of the last block of the file (exclusive);
 	last_block_in_file = (i_size_read(inode) + blocksize - 1) >> blkbits;
+
+  //Yuanguo: if requested block is out of the range of the file.
 	if (last_block > last_block_in_file)
 		last_block = last_block_in_file;
+
 	page_block = 0;
 
 	/*
@@ -201,11 +213,19 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 
 		if (block_in_file < last_block) {
 			map_bh->b_size = (last_block-block_in_file) << blkbits;
+
+      //Yuanguo:
+      //  get_block: get the logical block number corresponding to 'block_in_file' (that is the 
+      //             index of the block inside its disk or partition corresponding to 'block_in_file') 
+      //             and save it into map_bh->b_blocknr;
+      //  for ext4, it is ext4_get_block;
 			if (get_block(inode, block_in_file, map_bh, 0))
 				goto confused;
+
 			*first_logical_block = block_in_file;
 		}
 
+    //Yuanguo: current block falls in a "file hole"
 		if (!buffer_mapped(map_bh)) {
 			fully_mapped = 0;
 			if (first_hole == blocks_per_page)
@@ -215,23 +235,45 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 			continue;
 		}
 
+    //Yuanguo: 
+    //  check for any anomalous condition that could occur in 'get_block' above. in particular:
+    //     a. some blocks are not adjacent on disk;
+    //     b. some block falls inside a "file hole";  
+    //     c. a block buffer has been already filled by the get_block function;
+    //  in any case, jump to 'confused' to read the page one block at a time. And
+    //  the cache is 'Buffer-Cache' (not 'Page-Cache');
+
 		/* some filesystems will copy data into the page during
 		 * the get_block call, in which case we don't want to
 		 * read it again.  map_buffer_to_page copies the data
 		 * we just collected from get_block into the page's buffers
 		 * so readpage doesn't have to repeat the get_block call
 		 */
+    //Yuanguo: case-c:
 		if (buffer_uptodate(map_bh)) {
 			map_buffer_to_page(page, map_bh, page_block);
 			goto confused;
 		}
 	
+    //Yuanguo: case-b:
+    //  if all blocks of the page fall in "file hole", we cannot reach here, see   
+    //       if (!buffer_mapped(map_bh)) { ... } 
+    //  above. 
+    //  In other words, if we reach here, at least one block are NOT in "file hole".
+    //  And, if first_hole != blocks_per_page, there must be some block in "file hole".
+    //  So, here we know that some blocks are in "file hole", but not all.
 		if (first_hole != blocks_per_page)
 			goto confused;		/* hole -> non-hole */
 
 		/* Contiguous blocks? */
+    //Yuanguo: case-a:
+    //  non-contiguouse if: 
+    //    this is not the first block in the page (page_block>0)
+    //    AND
+    //    logical block number of prev block != (logical block number of this block) - 1
 		if (page_block && blocks[page_block-1] != map_bh->b_blocknr-1)
 			goto confused;
+
 		nblocks = map_bh->b_size >> blkbits;
 		for (relative_block = 0; ; relative_block++) {
 			if (relative_block == nblocks) {
@@ -352,6 +394,13 @@ confused:
  *
  * This all causes the disk requests to be issued in the correct order.
  */
+//Yuanguo: 
+//  pages: descriptors of empty memory pages that have been allocated to store the data that 
+//         will be read from disk. the 'index' field of each page descriptor (page->index) has
+//         been set as the index of the page in the file (the page's position in the file's 
+//         radix tree);
+//  nr_pages: how many pages in param 'pages';
+//  get_block: for ext4, it is ext4_get_block;
 int
 mpage_readpages(struct address_space *mapping, struct list_head *pages,
 				unsigned nr_pages, get_block_t get_block)
@@ -370,9 +419,11 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 		prefetchw(&page->flags);
 		list_del(&page->lru);
 
-    //Yuanguo: add the page into page cache, return 0 to indicate success
+    //Yuanguo: add the page into page cache (radix tree), return 0 to indicate success.
+    //  page->index is the position of the page in the radix tree;
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
+      //Yuanguo: if the page is succeeded adding into page cache ...
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
 					&last_block_in_bio, &map_bh,
