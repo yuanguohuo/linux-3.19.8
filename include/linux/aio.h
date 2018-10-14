@@ -30,20 +30,36 @@ struct kiocb;
 typedef int (kiocb_cancel_fn)(struct kiocb *);
 
 struct kiocb {
+  //Yuanguo: pointer to the file object associated with the ongoing I/O operation.
 	struct file		*ki_filp;
+
+  //Yuanguo: pointer to the asynchronous I/O context descriptor for this operation.
 	struct kioctx		*ki_ctx;	/* NULL for sync ops */
+
+  //Yuanguo: method invoked when canceling an asynchronous I/O operation.
 	kiocb_cancel_fn		*ki_cancel;
+
 	void			*private;
 
+  //Yuanguo: 
+  //  for synchronous operations  : pointer to the process descriptor that issued the I/O operation; 
+  //  for asynchronous operations : pointer to the iocb User Mode data structur;
 	union {
 		void __user		*user;
 		struct task_struct	*tsk;
 	} ki_obj;
 
+  //Yuanguo: value to be returned to the User Mode process.
 	__u64			ki_user_data;	/* user's data for completion */
-	loff_t			ki_pos;                                        //Yuanguo: file pos
-	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */ //Yuanguo: how many bytes from file pos. 
 
+  //Yuanguo: current file position (file pos) of the ongoing I/O operation.
+	loff_t			ki_pos;
+
+  //Yuanguo: number of bytes to be transferred (how many bytes to transferred
+  //  starting from ki_pos)
+	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */
+
+  //Yuanguo: pointers for the list of active ongoing I/O operation on an asynchronous I/O context.
 	struct list_head	ki_list;	/* the aio core uses this
 						 * for cancellation */
 

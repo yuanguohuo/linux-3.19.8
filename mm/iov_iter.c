@@ -321,12 +321,17 @@ void iov_iter_init(struct iov_iter *i, int direction,
 			const struct iovec *iov, unsigned long nr_segs,
 			size_t count)
 {
+  //Yuanguo: 'i' (struct iov_iter) points to some space in either one of
+  //  1. user land
+  //  2. kernel land
+  //  3. memory segment
+
 	/* It will get better.  Eventually... */
-	if (segment_eq(get_fs(), KERNEL_DS)) {
+	if (segment_eq(get_fs(), KERNEL_DS)) {  //Yuanguo: kernel land
 		direction |= ITER_KVEC;
 		i->type = direction;
 		i->kvec = (struct kvec *)iov;
-	} else {
+	} else {   //Yuanguo: user land
 		i->type = direction;
 		i->iov = iov;
 	}

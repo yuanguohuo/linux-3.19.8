@@ -401,8 +401,15 @@ EXPORT_SYMBOL(do_sync_read);
 
 ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos)
 {
+  //Yuanguo: 'iov' contains the address and the length of the User Mode buffer that shall 
+  //  receive the data read from the file. 
 	struct iovec iov = { .iov_base = buf, .iov_len = len };
+
+  //Yuanguo: 'kiocb' is used to keep track of the completion status of an ongoing synchronous 
+  //  or asynchronous I/O operation.
 	struct kiocb kiocb;
+
+  //Yuanguo: iterator on 'iov', so it's the data destination.
 	struct iov_iter iter;
 	ssize_t ret;
 
@@ -413,12 +420,12 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
         __func__, filp->f_path.dentry->d_parent->d_name.name, filp->f_path.dentry->d_name.name, (unsigned long)len);
   }
 
-  //Yuanguo: read from where?
+  //Yuanguo: read from where.
 	init_sync_kiocb(&kiocb, filp);
 	kiocb.ki_pos = *ppos;
 	kiocb.ki_nbytes = len;
 
-  //Yuanguo: where to put the content we read?
+  //Yuanguo: where to put the data we read (data destination).
 	iov_iter_init(&iter, READ, &iov, 1, len);
 
   //Yuanguo: for ext4, filp->f_op->read_iter = generic_file_read_iter
