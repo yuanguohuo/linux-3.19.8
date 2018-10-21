@@ -409,7 +409,7 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
   //  or asynchronous I/O operation.
 	struct kiocb kiocb;
 
-  //Yuanguo: iterator on 'iov', so it's the data destination.
+  //Yuanguo: iterator on 'iov', so it stands for the data destination.
 	struct iov_iter iter;
 	ssize_t ret;
 

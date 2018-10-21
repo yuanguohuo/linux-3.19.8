@@ -1531,17 +1531,21 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 	unsigned int prev_offset;
 	int error = 0;
 
-  //Yuanguo: consider the file as subdivided into pages (normally 4k): 
-  //  'index' is the number of the page that includes the first requested byte.
+  //Yuanguo: consider the file as an array of pages (normally 4k): 
+  //  'index' is the index (in the array) of the page that includes the first requested byte.
+  //  Notice that Page Cache uses such index to place/locate the page;
 	index = *ppos >> PAGE_CACHE_SHIFT;
 
 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
 	prev_offset = ra->prev_pos & (PAGE_CACHE_SIZE-1);
 
-  //Yuanguo: consider the file as subdivided into pages (normally 4k): 
+  //Yuanguo: consider the file as an array of pages (normally 4k): 
   //  'last_index' is NOT the number of the page that includes the last requested byte, but
   //  the number of the page after that page;
+  //  so the range is [index, last_index)
 	last_index = (*ppos + iter->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
+
+  //Yuanguo: ~PAGE_CACHE_MASK = 0x0FFF;
 
   //Yuanguo: offset of the first requested byte within the first page;
 	offset = *ppos & ~PAGE_CACHE_MASK;
@@ -1555,7 +1559,7 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
   //            |                                   |
   //          index                             last_index
 
-	for (;;) {   //Yuanguo: a cycle to read all pages from index to last_index; one page per iteration;
+	for (;;) {   //Yuanguo: a cycle to read all pages from 'index' to 'last_index'; one page per iteration;
 		struct page *page;
 		pgoff_t end_index;
 		loff_t isize;
@@ -1612,8 +1616,43 @@ page_ok:
 			goto out;
 		}
 
+    //Yuanguo: for example, 
+    //       0        1        2        3        4         page-index
+    //   +--------+--------+--------+--------+--------+
+    //   |        |        |        |        |        |    pages
+    //   +--------+--------+--------+--------+--------+
+    //                  ^                      ^   ^
+    //                  |                      |   |
+    //                  |                     EOF  |
+    //                  |<-------count=12K-------->|
+    //                  |    
+    //              *ppos=4K+3000
+    //
+    //  note that the request range exceeds the size of file (isize):
+    //       *ppos=4K+3000
+    //       count=12K
+    //       isize=16K+985
+    //
+    // ideally, the copy process is: [3000,4K) from page-1, then [0,4K) from page-2,
+    // [0,4K) from page-3, [0,985) from page-4;
+    //
+    // for the 0th-iteration: offset=3000, index=1, nr=4K-3000; then ret=4K-3000, then
+    //       offset += ret;                           ==> offset = 4K;
+    //       index += offset >> PAGE_CACHE_SHIFT;     ==> index = 2;    //goto next page
+    //       offset &= ~PAGE_CACHE_MASK;              ==> offset = 0; (~PAGE_CACHE_MASK=0x0FFF). //start at 0 of next page
+    // so, for subsequent iterations, offset should be 0:
+    //       1st-iteration: index=2, offset=0, nr=PAGE_CACHE_SIZE=4K, ret=4K; 
+    //       2nd-iteration: index=3, offset=0, nr=PAGE_CACHE_SIZE=4K, ret=4K;
+    //       3rd-iteration: index=4, offset=0, nr = ((isize - 1) & ~PAGE_CACHE_MASK) + 1 = 985, ret=985. 
+    //                      3000 bytes are requested from the ending page, but it has only 985 bytes, as a
+    //                      result, the nr is truncated to 985;
+
 		/* nr is the maximum number of bytes to copy from this page */
+
+    //Yuanguo: if not the last page, the full page (so nr = PAGE_CACHE_SIZE) should be copied.
 		nr = PAGE_CACHE_SIZE;
+
+    //Yuanguo: if the last page, part of the page (so nr = ((isize-1) % PAGE_CACHE_SIZE) + 1) should be copied.
 		if (index == end_index) {
 			nr = ((isize - 1) & ~PAGE_CACHE_MASK) + 1;
 			if (nr <= offset) {
@@ -1621,6 +1660,10 @@ page_ok:
 				goto out;
 			}
 		}
+
+    //Yuanguo: offset is the start point of current page. 
+    //  for the 0th-iteration, it is:  *ppos & ~PAGE_CACHE_MASK;
+    //  for subsequent iterations, it should be normally 0;
 		nr = nr - offset;
 
 		/* If users can be writing to this page using arbitrary
@@ -1647,10 +1690,12 @@ page_ok:
 
     //Yuanguo: increase offset
 		offset += ret;
-    //Yuanguo: if offset > PAGE_SIZE, ++index, go to next page;
+    //Yuanguo: 
+    //  if offset < PAGE_SIZE (still in current page), offset>>PAGE_CACHE_SHIFT = 0, index is not updated;
+    //  if offset >= PAGE_SIZE (past current page), offset>>PAGE_CACHE_SHIFT = 1, index is increased by 1, 
+    //      that's to go to next page;
 		index += offset >> PAGE_CACHE_SHIFT;
-    //Yuanguo: if go to next page (offset > PAGE_SIZE), let offset point to 
-    //    position within the nex page.
+    //Yuanguo: let offset point to the start point within current/next page;
 		offset &= ~PAGE_CACHE_MASK;
 
 		prev_offset = offset;

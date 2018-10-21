@@ -34,6 +34,7 @@ struct kiocb {
 	struct file		*ki_filp;
 
   //Yuanguo: pointer to the asynchronous I/O context descriptor for this operation.
+  //     ki_ctx=NULL indicates that it's sync op;
 	struct kioctx		*ki_ctx;	/* NULL for sync ops */
 
   //Yuanguo: method invoked when canceling an asynchronous I/O operation.
@@ -54,9 +55,7 @@ struct kiocb {
 
   //Yuanguo: current file position (file pos) of the ongoing I/O operation.
 	loff_t			ki_pos;
-
-  //Yuanguo: number of bytes to be transferred (how many bytes to transferred
-  //  starting from ki_pos)
+  //Yuanguo: number of bytes to be transferred (how many bytes to transferred starting from ki_pos)
 	size_t			ki_nbytes;	/* copy of iocb->aio_nbytes */
 
   //Yuanguo: pointers for the list of active ongoing I/O operation on an asynchronous I/O context.

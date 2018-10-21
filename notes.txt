@@ -294,3 +294,38 @@ submit_bio(rw, bio)             |     generic_make_request(bio)
 --------------------------------------------------------------------------------------------------
 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<  IO Schedule layer  <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 --------------------------------------------------------------------------------------------------
+
+
+
+16. Accessing Files
+
+const struct file_operations ext4_file_operations = {
+	.llseek		= ext4_llseek,
+	.read		= new_sync_read,
+	.write		= new_sync_write,
+	.read_iter	= generic_file_read_iter,
+	.write_iter	= ext4_file_write_iter,
+	.unlocked_ioctl = ext4_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= ext4_compat_ioctl,
+#endif
+	.mmap		= ext4_file_mmap,
+	.open		= ext4_file_open,
+	.release	= ext4_release_file,
+	.fsync		= ext4_sync_file,
+	.splice_read	= generic_file_splice_read,
+	.splice_write	= iter_file_splice_write,
+	.fallocate	= ext4_fallocate,
+};
+
+
+
+16.1 Read with O_DIRECT and O_SYNC cleared;
+
+ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
+    1. check a. parameters; b. mandatory lock; c. security permission
+    2. ssize_t __vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
+		      ----> file->f_op->read(file, buf, count, pos); <==> new_sync_read(file, buf, count, pos)
+	              ----> filp->f_op->read_iter(&kiocb, &iter);  <==> generic_file_read_iter(&kiocb, &iter)
+	                  ----> do_generic_file_read(file, ppos, iter, retval);
+
