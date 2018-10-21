@@ -142,7 +142,7 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
       //Yuanguo: for ext4, mapping->a_ops->readpage = ext4_readpage. However
-      //   ext4 has a readpages callback, we should not get here.
+      //   ext4 has a readpages callback, we should never get here.
 			mapping->a_ops->readpage(filp, page);
 		}
 		page_cache_release(page);
@@ -173,7 +173,10 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	struct inode *inode = mapping->host;
 	struct page *page;
 	unsigned long end_index;	/* The last page we want to read */
+
+  //Yuanguo: a temporary 'container' to hold empty pages allocated;
 	LIST_HEAD(page_pool);
+
 	int page_idx;
 	int ret = 0;
 
@@ -183,16 +186,16 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	if (isize == 0)
 		goto out;
 
-  //Yuanguo: consider the file as subdivided into pages (normally 4k):
+  //Yuanguo: consider the file as an array of pages (normally 4k):
   //  'end_index' is the index of the last page of the file;
 	end_index = ((isize - 1) >> PAGE_CACHE_SHIFT);
 
 	/*
 	 * Preallocate as many pages as we will need.
 	 */
-  //Yuanguo: allocate the pages first;
+  //Yuanguo: allocate all the pages first;
 	for (page_idx = 0; page_idx < nr_to_read; page_idx++) {
-    //Yuanguo: 'page_offset' is the index of current page to read; 
+    //Yuanguo: 'page_offset' is the index of current page (in the page array or radix tree); 
 		pgoff_t page_offset = offset + page_idx;
 
 		if (page_offset > end_index)
@@ -213,10 +216,21 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		if (!page)
 			break;
 
+    //Yuanguo: the newly-allocated page is not inserted into the radix-tree now, but 
+    //  the index/position in radix-tree (page_offset) is recorded in page->index, so
+    //  that the page can be inserted later;
 		page->index = page_offset;
+
+    //Yuanguo: put the page in the temporary container;
 		list_add(&page->lru, &page_pool);
+
+    //Yuanguo: for example, we want to read 100 pages (nr_to_read=100),
+    //  lookahead_size=5, then 'Readahead' flag of 95th-page is set.
+    //  See do_generic_file_read(), when the 95th-page is consumed (only
+    //  5 pages are left), start async readahead.
 		if (page_idx == nr_to_read - lookahead_size)
 			SetPageReadahead(page);
+
 		ret++;
 	}
 
@@ -225,8 +239,8 @@ int __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 	 * uptodate then the caller will launch readpage again, and
 	 * will then handle the error.
 	 */
-  //Yuanguo: ret>0, then we do have some pages to read from disk. And, memory pages have been 
-  //  allocated, start the IO!
+  //Yuanguo: ret>0, then we do have some pages to read from disk. 
+  //  And, memory pages have been allocated, start the IO!
 	if (ret)
 		read_pages(mapping, filp, &page_pool, ret);
 	BUG_ON(!list_empty(&page_pool));
@@ -238,13 +252,19 @@ out:
  * Chunk the readahead into 2 megabyte units, so that we don't pin too much
  * memory at once.
  */
+//Yuanguo: 
+//  offset     : starting page index (consider file as an array of pages)
+//  nr_to_read : how many pages to read. it is a hint.
 int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		pgoff_t offset, unsigned long nr_to_read)
 {
 	if (unlikely(!mapping->a_ops->readpage && !mapping->a_ops->readpages))
 		return -EINVAL;
 
+  //Yuanguo: if nr_to_read > 512 (512 pages = 2M) then nr_to_read = 512;
+  //  that is to read ahead 2MB at most.
 	nr_to_read = max_sane_readahead(nr_to_read);
+
 	while (nr_to_read) {
 		int err;
 
@@ -521,6 +541,9 @@ readit:
  * pages onto the read request if access patterns suggest it will improve
  * performance.
  */
+//Yuanguo: 
+//  offset   : starting page index (consider file as an array of pages)
+//  req_size : how many pages to read. it is a hint.
 void page_cache_sync_readahead(struct address_space *mapping,
 			       struct file_ra_state *ra, struct file *filp,
 			       pgoff_t offset, unsigned long req_size)

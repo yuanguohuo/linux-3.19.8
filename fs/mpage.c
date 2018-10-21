@@ -177,6 +177,8 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	if (last_block > last_block_in_file)
 		last_block = last_block_in_file;
 
+  //Yuanguo: now, the request range is [block_in_file, last_block);
+
 	page_block = 0;
 
 	/*
@@ -185,18 +187,40 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	nblocks = map_bh->b_size >> blkbits;
 	if (buffer_mapped(map_bh) && block_in_file > *first_logical_block &&
 			block_in_file < (*first_logical_block + nblocks)) {
+
+    //Yuanguo:
+    //   |<-------------------------nblocks=120---------------------->|
+    //   |                                                            |
+    //   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //   |............................................................| result of prev get_block call
+    //   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+    //   ^                                         ^                  |
+    //   |                                         |                  |
+    //   |<--------------map_offset=90------------>|<---last=30------>|
+    //   |                                         |
+    //*first_logical_block=260               block_in_file=350     <-- block# in file
+    //   |                                         |
+    //   |                                         |
+    //map_bh->b_blocknr=82000                    82090             <-- block# in disk or partition
+
 		unsigned map_offset = block_in_file - *first_logical_block;
 		unsigned last = nblocks - map_offset;
 
 		for (relative_block = 0; ; relative_block++) {
+      //Yuanguo: the result of prev get_block call is exhausted.
 			if (relative_block == last) {
 				clear_buffer_mapped(map_bh);
 				break;
 			}
+
+      //Yuanguo: all blocks of current page is mapped
 			if (page_block == blocks_per_page)
 				break;
+
+      //Yuanguo: map one block.  
 			blocks[page_block] = map_bh->b_blocknr + map_offset +
 						relative_block;
+
 			page_block++;
 			block_in_file++;
 		}
@@ -207,7 +231,15 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	 * Then do more get_blocks calls until we are done with this page.
 	 */
 	map_bh->b_page = page;
+
+  //Yuanguo: we have mapped some blocks of current page using the result of prev
+  //get_block call: [0,  page_block); 
+  //if that's not all (result of prev get_block call was exhausted), map the remaining.
 	while (page_block < blocks_per_page) {
+    //Yuanguo: since result of prev get_block call was exhausted, call
+    //get_block again, and save:
+    //   *first_logical_block: block# in file of the 1st mapped block;
+    //   map_bh->b_blocknr   : block# in disk or partition of the 1st mapped block;
 		map_bh->b_state = 0;
 		map_bh->b_size = 0;
 
@@ -215,8 +247,7 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 			map_bh->b_size = (last_block-block_in_file) << blkbits;
 
       //Yuanguo:
-      //  get_block: get the logical block number corresponding to 'block_in_file' (that is the 
-      //             index of the block inside its disk or partition corresponding to 'block_in_file') 
+      //  get_block: get the block# in disk or partition corresponding to 'block_in_file'
       //             and save it into map_bh->b_blocknr;
       //  for ext4, it is ext4_get_block;
 			if (get_block(inode, block_in_file, map_bh, 0))
@@ -423,7 +454,6 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
     //  page->index is the position of the page in the radix tree;
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
-      //Yuanguo: if the page is succeeded adding into page cache ...
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
 					&last_block_in_bio, &map_bh,

@@ -1542,10 +1542,10 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
   //Yuanguo: consider the file as an array of pages (normally 4k): 
   //  'last_index' is NOT the number of the page that includes the last requested byte, but
   //  the number of the page after that page;
-  //  so the range is [index, last_index)
+  //  so the range is [index, last_index), and last_index-index is "how many pages"
 	last_index = (*ppos + iter->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
 
-  //Yuanguo: ~PAGE_CACHE_MASK = 0x0FFF;
+  //Yuanguo: (~PAGE_CACHE_MASK) = 0x0000000000000FFF;
 
   //Yuanguo: offset of the first requested byte within the first page;
 	offset = *ppos & ~PAGE_CACHE_MASK;
@@ -1580,11 +1580,17 @@ find_page:
 				goto no_cached_page;
 		}
 
+    //Yuanguo: for example, we have read 100 pages, the 'Readahead' flag of 95th-page is set.
+    //  when this page is consumed, only 5 pages are left, start async readahead. see  
+    //      page_cache_sync_readahead() -->
+    //      force_page_cache_readahead() -->
+    //      __do_page_cache_readahead()
 		if (PageReadahead(page)) {
 			page_cache_async_readahead(mapping,
 					ra, filp, page,
 					index, last_index - index);
 		}
+
 		if (!PageUptodate(page)) {
 			if (inode->i_blkbits == PAGE_CACHE_SHIFT ||
 					!mapping->a_ops->is_partially_uptodate)
