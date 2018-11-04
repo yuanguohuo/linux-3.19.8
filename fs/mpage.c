@@ -59,6 +59,7 @@ static struct bio *mpage_bio_submit(int rw, struct bio *bio)
 {
 	bio->bi_end_io = mpage_end_io;
 	guard_bio_eod(rw, bio);
+  //Yuanguo: go to generic block layer ...
 	submit_bio(rw, bio);
 	return NULL;
 }
@@ -136,6 +137,33 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  * represent the validity of its disk mapping and to decide when to do the next
  * get_block() call.
  */
+//Yuanguo: this function trys to:
+//    step-1. map the blocks within the page (param 'page') to disk blocks;
+//    step-2. emit BIO to read data from mapped disk blocks to fill the page;
+//            the page may be merged into BIO of previouse pages;
+//
+//But this is just an ideal case. the blocks within the page (param 'page') are
+//mapped one by one, and if any one of the following anomalous conditions ocurs, 
+//this function gives up and treats the page as "Buffer-Cache" (buffer_head
+//based cache, or Block-Cache), see "confused".
+//
+//     a. blocks of the page are not adjacent on disk;
+//     b. the page has a non-hole after a hole;
+//     c. the page has block buffers (it is already a "Buffer-Cache", meaning it 
+//        contains buffer_head based cache). the block buffers are filled by the 
+//        get_block function (notice, get_block is usually used to read data for
+//        mapping the blocks, not for filling the page, but get_block function 
+//        of some Filesystems may do that);
+//
+//If none of these happens, the page is a "PageCache", and BIO will be emitted
+//to read its data; 
+//
+//One more thing to notice:
+//  as mentioned before, get_block is used to read data to map the blocks of the
+//  page. function do_mpage_readpage only maps one page (param 'page') in each 
+//  call, but it may read more data than needed from disk, so that subsequent 
+//  calls of do_mpage_readpage may be cheaper; param 'map_bh' is used to track 
+//  the extra data read from disk by get_block;
 static struct bio *
 do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		sector_t *last_block_in_bio, struct buffer_head *map_bh,
@@ -150,7 +178,15 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 	sector_t last_block_in_file;
 	sector_t blocks[MAX_BUF_PER_PAGE];
 	unsigned page_block;
+
+  //Yuanguo: assume that each page contains 4 disk blocks: block-0, block-1,
+  //  block-2 and block-3. first_hole records the first one of them that falls
+  //  in a hole; 
+  //  it is initialized to 4 (blocks_per_page), and if it's not modified after
+  //  mapping (it is still 4 after mapping), we know that, none of the block
+  //  falls in a hole;
 	unsigned first_hole = blocks_per_page;
+
 	struct block_device *bdev = NULL;
 	int length;
 	int fully_mapped = 1;
@@ -181,6 +217,9 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 
 	page_block = 0;
 
+  //Yuanguo: 
+  //  step-1. map the blocks within the page (param 'page') to disk blocks;
+  //          part-A: using result of previous get_block call
 	/*
 	 * Map blocks using the result from the previous get_blocks call first.
 	 */
@@ -227,6 +266,12 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		bdev = map_bh->b_bdev;
 	}
 
+
+  //Yuanguo: 
+  //  step-1. map the blocks within the page (param 'page') to disk blocks;
+  //          part-B: result of previous get_block call is exhausted, call get_block 
+  //          again to map the remaining blocks;
+
 	/*
 	 * Then do more get_blocks calls until we are done with this page.
 	 */
@@ -267,10 +312,14 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		}
 
     //Yuanguo: 
-    //  check for any anomalous condition that could occur in 'get_block' above. in particular:
-    //     a. some blocks are not adjacent on disk;
-    //     b. some block falls inside a "file hole";  
-    //     c. a block buffer has been already filled by the get_block function;
+    //  check for any anomalous condition that could occur. in particular:
+    //     a. blocks of the page are not adjacent on disk;
+    //     b. the page has a non-hole after a hole;
+    //     c. the page has block buffers (it is already a "Buffer-Cache", meaning it 
+    //        contains buffer_head based cache). the block buffers are filled by the 
+    //        get_block function (notice, get_block is usually used to read data for
+    //        mapping the blocks, not for filling the page, but get_block function 
+    //        of some Filesystems may do that);
     //  in any case, jump to 'confused' to read the page one block at a time. And
     //  the cache is 'Buffer-Cache' (not 'Page-Cache');
 
@@ -287,12 +336,10 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		}
 	
     //Yuanguo: case-b:
-    //  if all blocks of the page fall in "file hole", we cannot reach here, see   
-    //       if (!buffer_mapped(map_bh)) { ... } 
-    //  above. 
-    //  In other words, if we reach here, at least one block are NOT in "file hole".
-    //  And, if first_hole != blocks_per_page, there must be some block in "file hole".
-    //  So, here we know that some blocks are in "file hole", but not all.
+    //  suppose block-x of page is in a hole, if all blocks after block-x are in
+    //  hole, we cannot reach here, see above:
+    //       if (!buffer_mapped(map_bh)) { ... ; continue; }
+    //  in other words, if we reach here, there is a "non-hole after a hole";
 		if (first_hole != blocks_per_page)
 			goto confused;		/* hole -> non-hole */
 
@@ -305,12 +352,14 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		if (page_block && blocks[page_block-1] != map_bh->b_blocknr-1)
 			goto confused;
 
+    //Yuanguo: 
+    //  no anomalous condition occurred in 'get_block' above, continue to map the page!
 		nblocks = map_bh->b_size >> blkbits;
 		for (relative_block = 0; ; relative_block++) {
 			if (relative_block == nblocks) {
 				clear_buffer_mapped(map_bh);
 				break;
-			} else if (page_block == blocks_per_page)
+			} else if (page_block == blocks_per_page) //Yuanguo: if all blocks of the page are mapped.
 				break;
 			blocks[page_block] = map_bh->b_blocknr+relative_block;
 			page_block++;
@@ -319,14 +368,27 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		bdev = map_bh->b_bdev;
 	}
 
+  //Yuanguo: if "first_hole != blocks_per_page" here, we know:
+  //  1. there must be some block in "file hole";
+  //  2. there is no "non-hole after a hole"; that means: ending blocks of the
+  //     page are in hole (if block-x is in hole, all blocks of the page after 
+  //     it are in hole).
 	if (first_hole != blocks_per_page) {
+    //Yuanguo: zero the part that's in the hole;
 		zero_user_segment(page, first_hole << blkbits, PAGE_CACHE_SIZE);
+
+    //Yuanguo: the first block of the page is in hole, then the entire page must
+    //  be in hole;
 		if (first_hole == 0) {
 			SetPageUptodate(page);
 			unlock_page(page);
 			goto out;
 		}
 	} else if (fully_mapped) {
+    //Yuanguo: it seems that "if (fully_mapped)" is unnecessary.
+    //    fully_mapped=0              => first_hole!=blocks_per_page (see above)
+    // then
+    //    first_hole==blocks_per_page => fully_mapped!=0
 		SetPageMappedToDisk(page);
 	}
 
@@ -336,19 +398,27 @@ do_mpage_readpage(struct bio *bio, struct page *page, unsigned nr_pages,
 		goto confused;
 	}
 
+  //Yuanguo: 
+  //    step-2. emit BIO to read data from mapped disk blocks to fill the page;
+  //            the page may be merged into BIO of previouse pages;
+
 	/*
 	 * This page will go to BIO.  Do we need to send this BIO off first?
 	 */
+  //Yuanguo: on this disk, this page is not contiguous with previous page, so
+  //  submit the previous BIO first. return NULL;
 	if (bio && (*last_block_in_bio != blocks[0] - 1))
 		bio = mpage_bio_submit(READ, bio);
 
 alloc_new:
+  //Yuanguo: this is the first page, or the prev BIO has been submitted.
 	if (bio == NULL) {
 		if (first_hole == blocks_per_page) {
 			if (!bdev_read_page(bdev, blocks[0] << (blkbits - 9),
 								page))
 				goto out;
 		}
+    //Yuanguo: alloc a BIO 
 		bio = mpage_alloc(bdev, blocks[0] << (blkbits - 9),
 			  	min_t(int, nr_pages, bio_get_nr_vecs(bdev)),
 				GFP_KERNEL);
@@ -356,29 +426,53 @@ alloc_new:
 			goto confused;
 	}
 
+  //Yuanguo: now we have either:
+  //  1. a previous BIO, and this page is contiguous with pages in it; 
+  //  2. a newly allocated BIO;
+  //try to add this page into it.
 	length = first_hole << blkbits;
 	if (bio_add_page(bio, page, length, 0) < length) {
+    //Yuanguo: failed to add into previous BIO, then
+    //  1. sumbit previous BIO;
+    //  2. allocate new BIO;
 		bio = mpage_bio_submit(READ, bio);
 		goto alloc_new;
 	}
 
 	relative_block = block_in_file - *first_logical_block;
 	nblocks = map_bh->b_size >> blkbits;
+
+  //Yuanguo: 
+  //  if a. buffer boundary (see comments before function mpage_readpages) or b.
+  //  there is hole at the end of the page (cannot be non-hole after hole):
+  //      submit the BIO
+  //  else
+  //      don't sumbit the BIO, but leaving it to merge with subsequent pages.
+  //      *last_block_in_bio is used to record the BIO's ending position on
+  //      disk, so that subsequent call of 'do_mpage_readpage' can dectect if 
+  //      a page is contiguous with this BIO.
 	if ((buffer_boundary(map_bh) && relative_block == nblocks) ||
 	    (first_hole != blocks_per_page))
 		bio = mpage_bio_submit(READ, bio);
 	else
 		*last_block_in_bio = blocks[blocks_per_page - 1];
+
 out:
 	return bio;
 
+  //Yuanguo: an anomalous condition has ocurred, treat the page as "Buffer-Cache".
 confused:
+  //Yuanguo: if we have a BIO (generated in previous call of 'do_mpage_readpage'),
+  //  submit it.
 	if (bio)
 		bio = mpage_bio_submit(READ, bio);
+
+  //Yuanguo: if not up to date, treat the page as "Buffer-Cache".
 	if (!PageUptodate(page))
 	        block_read_full_page(page, get_block);
 	else
 		unlock_page(page);
+
 	goto out;
 }
 
@@ -454,6 +548,10 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
     //  page->index is the position of the page in the radix tree;
 		if (!add_to_page_cache_lru(page, mapping,
 					page->index, GFP_KERNEL)) {
+      //Yuanguo: 
+      //    step-1. map the blocks within the page (param 'page') to disk blocks;
+      //    step-2. emit BIO to read data from mapped disk blocks to fill the page;
+      //            the page may be merged into BIO of previouse pages;
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
 					&last_block_in_bio, &map_bh,
