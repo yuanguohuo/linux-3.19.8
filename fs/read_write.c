@@ -433,7 +433,7 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&kiocb);
 
-  //Yuanguo: output the updated file pos
+  //Yuanguo: return the updated file pos
 	*ppos = kiocb.ki_pos;
 	return ret;
 }

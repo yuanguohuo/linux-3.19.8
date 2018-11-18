@@ -1519,7 +1519,7 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 	struct address_space *mapping = filp->f_mapping;
 
   //Yuanguo: the owner of the address_space object:
-  //   if the file being read is a block device file, the owner is an inode in the bdev special filesystem;
+  //   if the file being read is a block device file, the owner is the inode in the bdev special filesystem;
   //   if the file being read is a regular file, the owner is the inode pointed to by filp->f_dentry->d_inode;
 	struct inode *inode = mapping->host;
 
@@ -1533,7 +1533,7 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 
   //Yuanguo: consider the file as an array of pages (normally 4k): 
   //  'index' is the index (in the array) of the page that includes the first requested byte.
-  //  Notice that Page Cache uses such index to place/locate the page;
+  //  Notice: PageCache uses such index to place/locate the page;
 	index = *ppos >> PAGE_CACHE_SHIFT;
 
 	prev_index = ra->prev_pos >> PAGE_CACHE_SHIFT;
@@ -1542,7 +1542,7 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
   //Yuanguo: consider the file as an array of pages (normally 4k): 
   //  'last_index' is NOT the number of the page that includes the last requested byte, but
   //  the number of the page after that page;
-  //  so the range is [index, last_index), and last_index-index is "how many pages"
+  //  so the range is [index, last_index), and "last_index - index" is "how many pages"
 	last_index = (*ppos + iter->count + PAGE_CACHE_SIZE-1) >> PAGE_CACHE_SHIFT;
 
   //Yuanguo: (~PAGE_CACHE_MASK) = 0x0000000000000FFF;
@@ -1565,12 +1565,18 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 		loff_t isize;
 		unsigned long nr, ret;
 
+    //Yuanguo: this is kernel preemption, because switch takes place in kernel mode, and:
+    //  1. 'current' is NOT voluntarily relinquishing CPU, because of having to sleep waiting for resource;
+    //  2. 'current' is NOT about to switch to User Mode;
+    //Note: the main characteristic of a preemptive kernel is that a process running in Kernel Mode can be 
+    //      replaced (not voluntarily relinquish CPU) by another process while in the middle of a kernel 
+    //      function.
 		cond_resched();
 find_page:
-    //Yuanguo: look up the page cache to find the descriptor of the page at 'index';
+    //Yuanguo: look up the PageCache to find the descriptor of the page at 'index';
 		page = find_get_page(mapping, index);
 
-    //Yuanguo: 
+    //Yuanguo: the page is not in PageCache, read it and put it in PageCache; 
 		if (!page) {
 			page_cache_sync_readahead(mapping,
 					ra, filp,
@@ -1581,7 +1587,8 @@ find_page:
 		}
 
     //Yuanguo: for example, we have read 100 pages, the 'Readahead' flag of 95th-page is set.
-    //  when this page is consumed, only 5 pages are left, start async readahead. see  
+    //  when this page is encountered and consumed, only 5 pages are left, so start async 
+    //  readahead. see: 
     //      page_cache_sync_readahead() -->
     //      force_page_cache_readahead() -->
     //      __do_page_cache_readahead()
@@ -1643,9 +1650,9 @@ page_ok:
     // [0,4K) from page-3, [0,985) from page-4;
     //
     // for the 0th-iteration: offset=3000, index=1, nr=4K-3000; then ret=4K-3000, then
-    //       offset += ret;                           ==> offset = 4K;
-    //       index += offset >> PAGE_CACHE_SHIFT;     ==> index = 2;    //goto next page
-    //       offset &= ~PAGE_CACHE_MASK;              ==> offset = 0; (~PAGE_CACHE_MASK=0x0FFF). //start at 0 of next page
+    //       offset += ret;                       ==> offset = 4K;
+    //       index += offset >> PAGE_CACHE_SHIFT; ==> index = 2;    //goto the next page
+    //       offset &= ~PAGE_CACHE_MASK;          ==> offset = 0; (~PAGE_CACHE_MASK=0x0FFF). //start at 0 of the next page
     // so, for subsequent iterations, offset should be 0:
     //       1st-iteration: index=2, offset=0, nr=PAGE_CACHE_SIZE=4K, ret=4K; 
     //       2nd-iteration: index=3, offset=0, nr=PAGE_CACHE_SIZE=4K, ret=4K;
@@ -1658,7 +1665,7 @@ page_ok:
     //Yuanguo: if not the last page, the full page (so nr = PAGE_CACHE_SIZE) should be copied.
 		nr = PAGE_CACHE_SIZE;
 
-    //Yuanguo: if the last page, part of the page (so nr = ((isize-1) % PAGE_CACHE_SIZE) + 1) should be copied.
+    //Yuanguo: if the last page, only part of the page should be copied.
 		if (index == end_index) {
 			nr = ((isize - 1) & ~PAGE_CACHE_MASK) + 1;
 			if (nr <= offset) {
@@ -1683,8 +1690,11 @@ page_ok:
 		 * When a sequential read accesses a page several times,
 		 * only mark it as accessed the first time.
 		 */
+    //Yuanguo: is it a bug here? if index didn't change but offset changed (read
+    //a page several times), mark_page_accessed is called.
 		if (prev_index != index || offset != prev_offset)
 			mark_page_accessed(page);
+
 		prev_index = index;
 
 		/*
@@ -1708,8 +1718,12 @@ page_ok:
 
 		page_cache_release(page);
 		written += ret;
+
+    //Yuanguo: iter->count has been decremented in 'copy_page_to_iter()' above;
+    //  if it becomes 0, we have got all data requested;
 		if (!iov_iter_count(iter))
 			goto out;
+
 		if (ret < nr) {
 			error = -EFAULT;
 			goto out;
@@ -1743,6 +1757,7 @@ readpage:
 		 * PG_error will be set again if readpage fails.
 		 */
 		ClearPageError(page);
+
 		/* Start the actual read. The read will unlock the page. */
     //Yuanguo: for ext4, readpage is ext4_readpage, see ext4_aops in 
     //   fs/ext4/inode.c;
@@ -1813,8 +1828,14 @@ out:
 	ra->prev_pos <<= PAGE_CACHE_SHIFT;
 	ra->prev_pos |= prev_offset;
 
+  //Yuanguo: return the updated pos; the updated pos will be eventually saved
+  //  into file->f_pos. see function:
+  //        SYSCALL_DEFINE3(read, unsigned int, fd, char __user *, buf, size_t, count)
 	*ppos = ((loff_t)index << PAGE_CACHE_SHIFT) + offset;
+
+  //Yuanguo: update access time if O_NOATIME not set;
 	file_accessed(filp);
+
 	return written ? written : error;
 }
 

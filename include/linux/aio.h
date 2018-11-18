@@ -44,7 +44,7 @@ struct kiocb {
 
   //Yuanguo: 
   //  for synchronous operations  : pointer to the process descriptor that issued the I/O operation; 
-  //  for asynchronous operations : pointer to the iocb User Mode data structur;
+  //  for asynchronous operations : pointer to the iocb User Mode data structure;
 	union {
 		void __user		*user;
 		struct task_struct	*tsk;

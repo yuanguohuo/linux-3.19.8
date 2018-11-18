@@ -139,7 +139,7 @@ map_buffer_to_page(struct page *page, struct buffer_head *bh, int page_block)
  */
 //Yuanguo: this function trys to:
 //    step-1. map the blocks within the page (param 'page') to disk blocks;
-//    step-2. emit BIO to read data from mapped disk blocks to fill the page;
+//    step-2. submit the BIO to read data from mapped disk blocks to fill the page;
 //            the page may be merged into BIO of previouse pages;
 //
 //But this is just an ideal case. the blocks within the page (param 'page') are
@@ -550,7 +550,7 @@ mpage_readpages(struct address_space *mapping, struct list_head *pages,
 					page->index, GFP_KERNEL)) {
       //Yuanguo: 
       //    step-1. map the blocks within the page (param 'page') to disk blocks;
-      //    step-2. emit BIO to read data from mapped disk blocks to fill the page;
+      //    step-2. submit the BIO to read data from mapped disk blocks to fill the page;
       //            the page may be merged into BIO of previouse pages;
 			bio = do_mpage_readpage(bio, page,
 					nr_pages - page_idx,
@@ -579,6 +579,11 @@ int mpage_readpage(struct page *page, get_block_t get_block)
 
 	map_bh.b_state = 0;
 	map_bh.b_size = 0;
+
+  //Yuanguo: 
+  //    step-1. map the blocks within the page (param 'page') to disk blocks;
+  //    step-2. submit the BIO to read data from mapped disk blocks to fill the page;
+  //            the page may be merged into BIO of previouse pages;
 	bio = do_mpage_readpage(bio, page, 1, &last_block_in_bio,
 			&map_bh, &first_logical_block, get_block);
 	if (bio)

@@ -744,7 +744,7 @@ static inline loff_t i_size_read(const struct inode *inode)
 	preempt_enable();
 	return i_size;
 #else
-	return inode->i_size;
+	return inode->i_size; //Yuanguo: i_size: size of the file;
 #endif
 }
 

@@ -1493,6 +1493,10 @@ pause:
 					  pause,
 					  start_time);
 		__set_current_state(TASK_KILLABLE);
+
+    //Yuanguo: 'current' task is being blocked for a period of 'pause'; 
+    //  io_schedule_timeout will return after the period 'pause', and 
+    //  by the time it returns, 'current' task will have finished blocking.
 		io_schedule_timeout(pause);
 
 		current->dirty_paused_when = now + pause;
