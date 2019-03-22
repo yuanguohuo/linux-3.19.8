@@ -115,6 +115,8 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 		ext4_unwritten_wait(inode);
 	}
 
+  //Yuanguo: thanks to this semaphore, only one process at a time can issue a write() system 
+  //         call on the file
 	mutex_lock(&inode->i_mutex);
 	if (file->f_flags & O_APPEND)
 		iocb->ki_pos = pos = i_size_read(inode);

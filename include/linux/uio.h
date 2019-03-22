@@ -28,13 +28,13 @@ enum {
 struct iov_iter {
 	int type;           //Yuanguo: READ(0) or WRITE(0)
 	size_t iov_offset;
-	size_t count;       //Yuanguo: how many bytes to read/write?
+	size_t count;       //Yuanguo: how many bytes in all of the 'struct iovec (suct kvec)' objects?
 	union {
 		const struct iovec *iov;
 		const struct kvec *kvec;
 		const struct bio_vec *bvec;
 	};
-	unsigned long nr_segs;
+	unsigned long nr_segs; //Yuanguo: how many 'struct iovec (struct kvec)' objects?
 };
 
 /*

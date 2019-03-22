@@ -2341,6 +2341,48 @@ extern int filemap_fdatawrite_range(struct address_space *mapping,
 extern int vfs_fsync_range(struct file *file, loff_t start, loff_t end,
 			   int datasync);
 extern int vfs_fsync(struct file *file, int datasync);
+
+
+//Yuanguo:
+//there are 2 types of integrity completion:
+//  a. data-integrity-completion: write operations will flush data to the underlying hardware, 
+//                                but will only flush metadata updates that are required to allow 
+//                                a subsequent read operation to complete successfully (such as length
+//                                of the file)
+//  b. file-integrity-completion: write operations will flush data and all associated 
+//                                metadata to the underlying hardware;
+//
+//  data-integrity-completion can reduce the number of disk operations that are required for applications 
+//  that don't need the guarantees of file-integrity-completion.
+//
+//  To understand the difference between the two, consider two pieces of file metadata: 
+//               the file last modification timestamp (st_mtime) 
+//               the file size (st_size)
+//  the last modification timestamp is NOT needed to ensure that a read completes successfully, but the file
+//  size is; thus data-integrity-completion would only guarantee to flush updates to the file size, whereas 
+//  file-integrity-completion would also always flush the last modification timestamp;
+//
+//  Before Linux 2.6.33 (only data-integrity-completion semantics were implemented):
+//      O_SYNC      : data-integrity-completion (yes, it should have been named as O_DSYNC)
+//      O_DSYNC     : not defined
+//      fsync()     : data-integrity-completion
+//      fdatasync() : equivalent to fsync() 
+//
+//  Since Linux 2.6.33:
+//      O_SYNC      : file-integrity-completion 
+//      O_DSYNC     : data-integrity-completion
+//      fsync()     : file-integrity-completion
+//      fdatasync() : data-integrity-completion
+//
+//  Yuanguo: before Linux 2.6.33, O_SYNC was used as O_DSYNC mistakenly, so since Linux 2.6.33, to
+//           make it backward compatible, 
+//                 O_DSYNC = legacy O_SYNC = 00010000                     --> data-integrity-completion
+//                 O_SYNC  = __O_SYNC|O_DSYNC = 04000000 | legacy O_SYNC  --> file-integrity-completion 
+//
+//           see include/uapi/asm-generic/fcntl.h
+//           
+//  O_DSYNC: data-integrity-completion
+//  IS_SYNC: file-integrity-completion, S_SYNC flag of inode and MS_SYNCHRONOUS flag of superblock;
 static inline int generic_write_sync(struct file *file, loff_t pos, loff_t count)
 {
 	if (!(file->f_flags & O_DSYNC) && !IS_SYNC(file->f_mapping->host))
