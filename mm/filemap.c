@@ -2636,7 +2636,14 @@ ssize_t generic_perform_write(struct file *file,
 		size_t copied;		/* Bytes copied from user */
 		void *fsdata;
 
+    //Yuanguo: offset within the current page
+    //    for the 1st page involved in current write-op, it may be a non-zero value;
+    //    for subsequent pages, it should be 0;
 		offset = (pos & (PAGE_CACHE_SIZE - 1));
+
+    //Yuanguo: length written to the current page
+    //    for the 1st page involved in current write-op, it is PageSize - offset;
+    //    for subsequent pages (other than the last), it should be PageSize;
 		bytes = min_t(unsigned long, PAGE_CACHE_SIZE - offset,
 						iov_iter_count(i));
 

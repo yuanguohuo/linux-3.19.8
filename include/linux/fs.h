@@ -844,6 +844,37 @@ struct file {
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
 	struct path		f_path;   //Yuanguo:  include/linux/path.h 
+
+  //Yuanguo:
+  //   for block device file:
+  //     +---------------------+
+  //     |     struct file     |
+  //     +---------------------+
+  //     |                     |
+  //     |      f_inode   -----+--------------------------------------------------> inode in devtmpfs 
+  //     |      ...            |                                                    (mounted on /dev)
+  //     |      f_mapping -----+------------> +--------------------------+
+  //     +---------------------+              |   struct address_space   |
+  //                                          +--------------------------+
+  //                                          |                          |
+  //                                          |           host ----------+--------> inode in bdev special filesystem
+  //                                          |                          |          (not mounted)
+  //                                          +--------------------------+
+  //   for regular file:
+  //     +---------------------+
+  //     |     struct file     |
+  //     +---------------------+
+  //     |                     |
+  //     |      f_inode   -----+-----------------------------------------------+
+  //     |      ...            |                                               |
+  //     |      f_mapping -----+------------> +--------------------------+     |
+  //     +---------------------+              |   struct address_space   |     |
+  //                                          +--------------------------+     |
+  //                                          |                          |     |
+  //                                          |           host ----------+-----+--> inode in the regular filesystem
+  //                                          |                          |
+  //                                          +--------------------------+
+
 	struct inode		*f_inode;	/* cached value */
 	const struct file_operations	*f_op;
 
@@ -876,7 +907,7 @@ struct file {
 	struct list_head	f_ep_links;
 	struct list_head	f_tfile_llink;
 #endif /* #ifdef CONFIG_EPOLL */
-	struct address_space	*f_mapping;
+	struct address_space	*f_mapping;    //Yuanguo: see f_inode above;
 } __attribute__((aligned(4)));	/* lest something weird decides that 2 is OK */
 
 struct file_handle {

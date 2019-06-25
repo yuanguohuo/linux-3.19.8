@@ -118,6 +118,7 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
   //Yuanguo: thanks to this semaphore, only one process at a time can issue a write() system 
   //         call on the file
 	mutex_lock(&inode->i_mutex);
+
 	if (file->f_flags & O_APPEND)
 		iocb->ki_pos = pos = i_size_read(inode);
 
@@ -175,15 +176,23 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	}
 
 	ret = __generic_file_write_iter(iocb, from);
+
+  //Yuanguo: thanks to this semaphore, only one process at a time can issue a write() system 
+  //         call on the file
 	mutex_unlock(&inode->i_mutex);
 
 	if (ret > 0) {
 		ssize_t err;
 
+    //Yuanguo: if need to sync (either data-integrity-completion or file-integrity-completion), force
+    //    the kernel to flush all pages in the page cache that have been touched, blocking the current 
+    //    process until the I/O data transfers terminate.
+    //    notice that syncing is done without inode->i_mutex locked; 
 		err = generic_write_sync(file, iocb->ki_pos - ret, ret);
 		if (err < 0)
 			ret = err;
 	}
+
 	if (o_direct)
 		blk_finish_plug(&plug);
 
