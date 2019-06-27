@@ -30,12 +30,13 @@ struct bio_vec {
 #ifdef CONFIG_BLOCK
 
 struct bvec_iter {
-  //Yuanguo: bi_sector is the first sector on disk of block 
-  //   I/O operation 
+  //Yuanguo: bi_sector is the first sector on disk of block I/O operation 
 	sector_t		bi_sector;	/* device address in 512 byte sectors */
 
+  //Yuanguo: bytes yet to be transferred;
 	unsigned int		bi_size;	/* residual I/O count */
 
+  //Yuanguo: current index in the bio's bio_vec array of segments (bi_io_vec)
 	unsigned int		bi_idx;		/* current index into bvl_vec */
 
 	unsigned int    bi_bvec_done;	/* number of bytes completed in
