@@ -2663,17 +2663,42 @@ again:
 			break;
 		}
 
+    //Yuanguo: 
+    //  for ext4,
+    //      if data=ordered/writeback, delay allocation is enabled     : a_ops = ext4_da_aops          write_begin = ext4_da_write_begin
+    //      if data=ordered/writeback, delay allocation is NOT enabled : a_ops = ext4_aops             write_begin = ext4_write_begin
+    //      if data=journal                                            : a_ops = ext4_journalled_aops  write_begin = ext4_write_begin
+    //
+    //      ext4_da_write_begin():
+    //          1. start journal ???
+    //          2. find/create the page in the page cache, and lock it;
+    //          3. allocate and initialize buffer heads for the page;
+    //          4. if any block-buffer is not up-to-date, invokes ll_rw_block() on the block to read its content from disk;
+    //          5. wait for the requests issued in step-4 if there is any;
 		status = a_ops->write_begin(file, mapping, pos, bytes, flags,
 						&page, &fsdata);
 		if (unlikely(status < 0))
 			break;
 
+    //Yuanguo: the address_space is mapped (mmap) 
 		if (mapping_writably_mapped(mapping))
 			flush_dcache_page(page);
 
+    //Yuanguo: copy data from user space to page;
 		copied = iov_iter_copy_from_user_atomic(page, i, offset, bytes);
 		flush_dcache_page(page);
 
+    //Yuanguo: 
+    //  for ext4,
+    //      if data=ordered/writeback, delay allocation is enabled     : a_ops = ext4_da_aops          write_end = ext4_da_write_end
+    //      if data=ordered/writeback, delay allocation is NOT enabled : a_ops = ext4_aops             write_end = ext4_write_end
+    //      if data=journal                                            : a_ops = ext4_journalled_aops  write_end = ext4_journalled_write_end
+    //
+    //      ext4_da_write_end():
+    //          1. set some flags on buffer head and page, such as BH_Dirty, PG_dirty
+    //          2. mark the inode as dirty
+    //          3. if the write operation enlarged the file, update the i_size field of the inode.
+    //          4. stop journal ???
 		status = a_ops->write_end(file, mapping, pos, bytes, copied,
 						page, fsdata);
 		if (unlikely(status < 0))
@@ -2682,6 +2707,7 @@ again:
 
 		cond_resched();
 
+    //Yuanguo: advance the iterator
 		iov_iter_advance(i, copied);
 		if (unlikely(copied == 0)) {
 			/*

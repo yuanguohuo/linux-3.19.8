@@ -2496,11 +2496,13 @@ static int ext4_da_write_begin(struct file *file, struct address_space *mapping,
 
 	index = pos >> PAGE_CACHE_SHIFT;
 
+  //Yuanguo: switch to non delay-alloc mode if we are running low on free block;
 	if (ext4_nonda_switch(inode->i_sb)) {
 		*fsdata = (void *)FALL_BACK_TO_NONDELALLOC;
 		return ext4_write_begin(file, mapping, pos,
 					len, flags, pagep, fsdata);
 	}
+
 	*fsdata = (void *)0;
 	trace_ext4_da_write_begin(inode, pos, len, flags);
 
@@ -2611,6 +2613,8 @@ static int ext4_da_write_end(struct file *file,
 	unsigned long start, end;
 	int write_mode = (int)(unsigned long)fsdata;
 
+  //Yuanguo: we may have switched to non delay-alloc mode (we are running low on free block)
+  //  see ext4_da_write_begin() 
 	if (write_mode == FALL_BACK_TO_NONDELALLOC)
 		return ext4_write_end(file, mapping, pos,
 				      len, copied, page, fsdata);

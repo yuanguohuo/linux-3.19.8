@@ -179,6 +179,8 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 {
 	if (!file->f_op->fsync)
 		return -EINVAL;
+
+  //Yuanguo: for ext4, file->f_op = ext4_file_operations
 	return file->f_op->fsync(file, start, end, datasync);
 }
 EXPORT_SYMBOL(vfs_fsync_range);

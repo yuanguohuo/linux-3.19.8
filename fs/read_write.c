@@ -524,7 +524,7 @@ ssize_t new_sync_write(struct file *filp, const char __user *buf, size_t len, lo
 	kiocb.ki_nbytes = len;
 	iov_iter_init(&iter, WRITE, &iov, 1, len);
 
-  //Yuanguo: for ext4, filp->f_op->write_iter = ext4_file_write_iter
+  //Yuanguo: for ext4,  filp->f_op = ext4_file_operations, filp->f_op->write_iter = ext4_file_write_iter
 	ret = filp->f_op->write_iter(&kiocb, &iter);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&kiocb);
@@ -581,7 +581,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		count = ret;
 		file_start_write(file);
 
-    //Yuanguo: for ext4, file->f_op->write = new_sync_write
+    //Yuanguo: for ext4, file->f_op = ext4_file_operations, file->f_op->write = new_sync_write
 		if (file->f_op->write)
 			ret = file->f_op->write(file, buf, count, pos);
 		else if (file->f_op->aio_write)
