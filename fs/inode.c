@@ -1783,6 +1783,8 @@ int file_update_time(struct file *file)
 	if (!timespec_equal(&inode->i_ctime, &now))
 		sync_it |= S_CTIME;
 
+  //Yuanguo: if MS_I_VERSION set, update the inode.i_version 
+  //  see mount option: iversion and noiversion;
 	if (IS_I_VERSION(inode))
 		sync_it |= S_VERSION;
 
@@ -1790,10 +1792,17 @@ int file_update_time(struct file *file)
 		return 0;
 
 	/* Finally allowed to write? Takes lock. */
+  //Yuanguo: 
+  //if read-only mount, 
+  //    return -EROFS, no update;
+  //else 
+  //    mnt_inc_writers(), corresponding to __mnt_drop_write_file() below;
 	if (__mnt_want_write_file(file))
 		return 0;
 
+  //Yuanguo: update the inode and mark it dirty;
 	ret = update_time(inode, &now, sync_it);
+
 	__mnt_drop_write_file(file);
 
 	return ret;

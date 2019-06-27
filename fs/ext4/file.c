@@ -119,6 +119,7 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
   //         call on the file
 	mutex_lock(&inode->i_mutex);
 
+  //Yuanguo: if it is append-operation, set position (iocb->ki_pos and pos) to current size;
 	if (file->f_flags & O_APPEND)
 		iocb->ki_pos = pos = i_size_read(inode);
 
@@ -126,9 +127,15 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 	 * If we have encountered a bitmap-format file, the size limit
 	 * is smaller than s_maxbytes, which is for extent-mapped files.
 	 */
+  //Yuanguo: 
+  //  if EXT4_INODE_EXTENTS not set, the file is block-mapped (traditional/old), in this case, the 
+  //      size of the file is limited by 's_bitmap_maxbytes';
+  //  otherwise,  EXT4_INODE_EXTENTS is set, the file is extent-mapped; the similar check/truncation
+  //      is done in __generic_file_write_iter() --> generic_write_checks();
 	if (!(ext4_test_inode_flag(inode, EXT4_INODE_EXTENTS))) {
 		struct ext4_sb_info *sbi = EXT4_SB(inode->i_sb);
 
+    //Yuanguo: the first byte of current write-operation will exceed the limit, return -EFBIG;
 		if ((pos > sbi->s_bitmap_maxbytes) ||
 		    (pos == sbi->s_bitmap_maxbytes && length > 0)) {
 			mutex_unlock(&inode->i_mutex);
@@ -136,6 +143,8 @@ ext4_file_write_iter(struct kiocb *iocb, struct iov_iter *from)
 			goto errout;
 		}
 
+    //Yuanguo: parts of current write-operation will exceed the limit, just write the part that 
+    //  is within the limit (the exceeding part is truncated)
 		if (pos + length > sbi->s_bitmap_maxbytes)
 			iov_iter_truncate(from, sbi->s_bitmap_maxbytes - pos);
 	}

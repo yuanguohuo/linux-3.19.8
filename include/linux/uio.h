@@ -25,15 +25,24 @@ enum {
 	ITER_BVEC = 4,
 };
 
+//Yuanguo: the iterator on an array of memory segments; 
+//   the first memory segment is iov, kvec, or bvec;
+//   the number of segments is nr_segs;
 struct iov_iter {
-	int type;           //Yuanguo: READ(0) or WRITE(0)
+	int type;           //Yuanguo: direction(READ=0,WRITE=1) | (ITER_IOVEC, ITER_KVEC or ITER_BVEC)
 	size_t iov_offset;
-	size_t count;       //Yuanguo: how many bytes in all of the 'struct iovec (suct kvec)' objects?
+	size_t count;       //Yuanguo: how many bytes in all of the 'struct iovec (struct kvec)' objects?
+
+  //Yuanguo: 
+  //  struct iovec   : a memory segment in user space;
+  //  struct kvec    : a memory segment in kernel space;
+  //  struct bio_vec : a memory segment in page/buffer cache;
 	union {
 		const struct iovec *iov;
 		const struct kvec *kvec;
 		const struct bio_vec *bvec;
 	};
+
 	unsigned long nr_segs; //Yuanguo: how many 'struct iovec (struct kvec)' objects?
 };
 

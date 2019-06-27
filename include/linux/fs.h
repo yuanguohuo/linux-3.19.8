@@ -624,9 +624,18 @@ struct inode {
 	};
 	dev_t			i_rdev;
 	loff_t			i_size;         //Yuanguo: file size;
-	struct timespec		i_atime;  //Yuanguo: time of last file access;
-	struct timespec		i_mtime;  //Yuanguo: time of last file write;
-	struct timespec		i_ctime;  //Yuanguo: time of last inode change; NOT time-of-create !!!
+
+  //Yuanguo: 
+  //  i_atime: time of last file access;
+  //  i_mtime: time of last file write (file content modified);
+  //  i_ctime: time of last inode change, NOT the create time !!!
+  //
+  //if file content is modified, i_mtime should be updated, the inode should be updated (because i_mtime is in inode),
+  //as a result, the i_ctime should be updated; 
+  //that is to say: i_mtime change ==> i_ctime change; (i_ctime change ==> i_mtime change NOT hold)
+	struct timespec		i_atime;
+	struct timespec		i_mtime;
+	struct timespec		i_ctime;
 	spinlock_t		i_lock;	/* i_blocks, i_bytes, maybe i_size */
 	unsigned short          i_bytes;
 	unsigned int		i_blkbits;  //Yuanguo: if blocksize=1K, i_blkbits=10; if blocksize=4K, i_blkbits=12;
