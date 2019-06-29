@@ -565,9 +565,9 @@ static LIST_HEAD(all_bdevs);
 //to ext2/3/4: the identity of a file is the 'inode number', see function iget_locked(); to find the
 //             inode (in ext2/3/4 filesystem) of a file, we need to compare superblock (because there 
 //             may be multiple ext2/3/4 filesystems, which have same inode space) and 'inode number';
-//but for bdev fs: the identity of a file (a device) is 'dev_t'; to find inode (in 'dev fs') of a file 
+//but for bdev fs: the identity of a file (a device) is 'dev_t'; to find inode (in 'bdev fs') of a file 
 //             (device), we need to compare the 'dev_t' (we don't need to compare the superblock because 
-//             there's only one 'dev fs'); bdev_test is the compare-function;
+//             there's only one 'bdev fs'); bdev_test is the compare-function;
 struct block_device *bdget(dev_t dev)
 {
 	struct block_device *bdev;
