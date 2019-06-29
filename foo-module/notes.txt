@@ -1,0 +1,26 @@
+1. ERROR: Kernel configuration is invalid.
+       include/generated/autoconf.h or include/config/auto.conf are missing.
+       Run 'make oldconfig && make prepare' on kernel src to fix it.
+
+    make menuconfig
+    make prepare
+
+2. scripts/mod/modpost: No such file or directory
+
+   make modules_prepare
+
+3. WARNING: Symbol version dump ./Module.symvers
+         is missing; modules will have no dependencies and modversions.
+
+   make modules
+
+
+或者先编译内核：
+    make menuconfig
+    make
+    make modules
+问题1,2,3都不会出现了；
+
+4. module verification failed: signature and/or  required key missing - tainting kernel
+  a. add "CONFIG_MODULE_SIG=n" to the Makefile of my module, as suggested by some blog pages, but not fixed; 
+  b. recomplie kernel with "Enable loadable module support" -->  "Module signature verification" disabled;
