@@ -1690,6 +1690,7 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 			goto out_unlock;
 		}
 	}
+
   //Yuanguo: In summary, if merge succeeded, blk_account_io_start(req, false) is called: 
   //               disk_stats.merges[READ/WRITE]++;
   //         and return from this function.
@@ -1705,6 +1706,8 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
   //		             disk_stats.io_ticks += {time-elpased}
   //                 hd_struct.in_flight[READ/WRITE]++
 
+  //Yuanguo: if we get here, merge has failed.
+  
 get_rq:
 	/*
 	 * This sync check and mask will be re-done in init_request_from_bio(),
