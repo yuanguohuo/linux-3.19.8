@@ -155,7 +155,7 @@ static int __init foo_init(void)
     printk("ERROR: YuanguoFoo foo_init(): register_blkdev failed\n");
     return -1;
   }
-  printk("INFO: YuanguoFoo foo_init(): register_blkdev succeeded. FOO_MAJOR=%d do_foo_request=%p\n", FOO_MAJOR, do_foo_request);
+  printk("INFO: YuanguoFoo foo_init(): register_blkdev succeeded. FOO_MAJOR=%d\n", FOO_MAJOR);
 
   //2.init queue
   foo_queue = blk_init_queue(do_foo_request, &foo_lock);
@@ -165,7 +165,7 @@ static int __init foo_init(void)
     unregister_blkdev(FOO_MAJOR, "foo");
     return -ENOMEM;
   }
-  printk("INFO: YuanguoFoo foo_init(): blk_init_queue succeeded. foo_queue=%p\n", foo_queue);
+  printk("INFO: YuanguoFoo foo_init(): blk_init_queue succeeded. foo_queue=%p do_foo_request=%p\n", foo_queue, do_foo_request);
 
 	blk_queue_max_hw_sectors(foo_queue, 256);
   blk_queue_max_segments(foo_queue,256);
