@@ -35,7 +35,7 @@ struct foo_disk
 
 static struct foo_disk foo_disk0 = 
 {
-  //disk size = 1 * 1024 * 32 * 512 = 16MB;
+  //disk size = 1 * 200 * 32 * 512 = 3200KB;
   .heads       = 1,
   .sectors     = 200,
   .cylinders   = 32,
@@ -148,7 +148,7 @@ static int __init foo_init(void)
 
   //1.register_blkdev:
   //  alloc FOO_MAJOR, and then put FOO_MAJOR => foo in major_names (like a hashtable)
-  //  the register major numbers can be seen in: /proc/devices 
+  //  the registered major numbers can be seen in: /proc/devices 
   FOO_MAJOR = register_blkdev(0, "foo");
   if(FOO_MAJOR<0)
   {
