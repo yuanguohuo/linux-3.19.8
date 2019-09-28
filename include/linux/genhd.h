@@ -182,6 +182,8 @@ struct gendisk {
 	 * non-critical accesses use RCU.  Always access through
 	 * helpers.
 	 */
+  //Yuanguo: partitions are indexed by partno, thus, the partno of the
+  //  first partition is 0, which stands for the whole disk;
 	struct disk_part_tbl __rcu *part_tbl;
 	struct hd_struct part0;
 

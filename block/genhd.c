@@ -191,6 +191,7 @@ void disk_part_iter_exit(struct disk_part_iter *piter)
 }
 EXPORT_SYMBOL_GPL(disk_part_iter_exit);
 
+//Yuanguo: test if the given sector is in the given part;
 static inline int sector_in_part(struct hd_struct *part, sector_t sector)
 {
 	return part->start_sect <= sector &&
@@ -212,6 +213,8 @@ static inline int sector_in_part(struct hd_struct *part, sector_t sector)
  * RETURNS:
  * Found partition on success, part0 is returned if no partition matches
  */
+//Yuanguo: find out which partition the given sector resides in;
+//         if not found, return partition-0, which stands for the whole disk;
 struct hd_struct *disk_map_sector_rcu(struct gendisk *disk, sector_t sector)
 {
 	struct disk_part_tbl *ptbl;
@@ -257,6 +260,7 @@ static inline int major_to_index(unsigned major)
 }
 
 #ifdef CONFIG_PROC_FS
+//Yuanguo: print to seqf the major names with major%255 == offset;
 void blkdev_show(struct seq_file *seqf, off_t offset)
 {
 	struct blk_major_name *dp;
@@ -295,11 +299,14 @@ int register_blkdev(unsigned int major, const char *name)
 
 	/* temporary */
 	if (major == 0) {
+    //Yuanguo: the caller didn't specify a major (major==0), allocate one for him/her:
+    //    find an empty bucket in hashtable 'major_names';
 		for (index = ARRAY_SIZE(major_names)-1; index > 0; index--) {
 			if (major_names[index] == NULL)
 				break;
 		}
 
+    //Yuanguo: failed to allocate one;
 		if (index == 0) {
 			printk("register_blkdev: failed to get major for %s\n",
 			       name);
@@ -322,9 +329,14 @@ int register_blkdev(unsigned int major, const char *name)
 	index = major_to_index(major);
 
 	for (n = &major_names[index]; *n; n = &(*n)->next) {
+    //Yuanguo: 'major' conflict; this only happens to the case where
+    //  the caller specifies a major;
 		if ((*n)->major == major)
 			break;
 	}
+
+  // if *n == NULL;  no conflict major, so link p to the list;
+  // else, conflict, return -EBUSY;
 	if (!*n)
 		*n = p;
 	else
@@ -342,6 +354,7 @@ out:
 
 EXPORT_SYMBOL(register_blkdev);
 
+//Yuanguo: the opposite operation to register_blkdev;
 void unregister_blkdev(unsigned int major, const char *name)
 {
 	struct blk_major_name **n;
