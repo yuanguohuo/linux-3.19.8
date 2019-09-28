@@ -772,6 +772,8 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 	if (blk_init_rl(&q->root_rl, q, GFP_KERNEL))
 		goto fail;
 
+  //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+  //         q->request_fn      : the function that consumes requests from 'q';
 	q->request_fn		= rfn;
 	q->prep_rq_fn		= NULL;
 	q->unprep_rq_fn		= NULL;
@@ -784,6 +786,9 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 	/*
 	 * This also sets hw/phys segments, boundary and size
 	 */
+  //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+  //         q->request_fn      : the function that consumes requests from 'q';
+  //Yuanguo: here, q->make_request_fn is set to 'blk_queue_bio';
 	blk_queue_make_request(q, blk_queue_bio);
 
 	q->sg_reserved_size = INT_MAX;
@@ -1115,6 +1120,7 @@ out:
 	if (ioc_batching(q, ioc))
 		ioc->nr_batch_requests--;
 
+  //Yuanguo: the event/stage 'G(get request)' in blktrace;
 	trace_block_getrq(q, bio, rw_flags & 1);
 	return rq;
 
@@ -1198,6 +1204,7 @@ retry:
 	prepare_to_wait_exclusive(&rl->wait[is_sync], &wait,
 				  TASK_UNINTERRUPTIBLE);
 
+  //Yuanguo: the event/stage 'S(sleep)' in blktrace;
 	trace_block_sleeprq(q, bio, rw_flags & 1);
 
 	spin_unlock_irq(q->queue_lock);
@@ -1723,6 +1730,7 @@ get_rq:
 	 * Returns with the queue unlocked.
 	 */
   //Yuanguo: alloc a 'struct request'
+  //Yuanguo: the event/stage 'S(sleep)' and 'G(get request)' in blktrace;
 	req = get_request(q, rw_flags, bio, GFP_NOIO);
 	if (IS_ERR(req)) {
 		bio_endio(bio, PTR_ERR(req));	/* @q is dead */
@@ -2159,8 +2167,8 @@ void generic_make_request(struct bio *bio)
     //nvme driver to the separate 'multi-queue block layer'. So SATA SDD or even
     //HDD can also benefit from it.
     //
-    // q->make_request_fn(): put  bio into the q;
-    // q->request_fn()     : consume request from the q;
+    //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+    //         q->request_fn      : the function that consumes requests from 'q';
 		q->make_request_fn(q, bio);
 
 		bio = bio_list_pop(current->bio_list);
