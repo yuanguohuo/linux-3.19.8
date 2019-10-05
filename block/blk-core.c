@@ -317,8 +317,8 @@ inline void __blk_run_queue_uncond(struct request_queue *q)
   //      so, for iscsi driver, q->request_fn points to scsi_request_fn.
   //Yuanguo: thus, here goes to the driver ...
   //
-  // q->make_request_fn(): put  bio into the q;
-  // q->request_fn()     : consume request from the q;
+  //Yuanguo: q->make_request_fn : the function that produces requests and put into 'q';
+  //         q->request_fn      : the function that consumes requests from 'q';
 	q->request_fn(q);
 
 	q->request_fn_active--;
@@ -772,7 +772,7 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 	if (blk_init_rl(&q->root_rl, q, GFP_KERNEL))
 		goto fail;
 
-  //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+  //Yuanguo: q->make_request_fn : the function that produces requests and put into 'q';
   //         q->request_fn      : the function that consumes requests from 'q';
 	q->request_fn		= rfn;
 	q->prep_rq_fn		= NULL;
@@ -786,7 +786,7 @@ blk_init_allocated_queue(struct request_queue *q, request_fn_proc *rfn,
 	/*
 	 * This also sets hw/phys segments, boundary and size
 	 */
-  //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+  //Yuanguo: q->make_request_fn : the function that produces requests and put into 'q';
   //         q->request_fn      : the function that consumes requests from 'q';
   //Yuanguo: here, q->make_request_fn is set to 'blk_queue_bio';
 	blk_queue_make_request(q, blk_queue_bio);
@@ -1700,20 +1700,19 @@ void blk_queue_bio(struct request_queue *q, struct bio *bio)
 
   //Yuanguo: In summary, if merge succeeded, blk_account_io_start(req, false) is called: 
   //               disk_stats.merges[READ/WRITE]++;
-  //         and return from this function.
+  //         and this function should have returned.
   //
-  //Yuanguo: if merge failed, this function continues as below: alloc a 'struct request'
-  //         req for bio, and 
-  //                      1. put req in current->plug->list; 
-  //                    or
-  //                      2. put req in q and run it; 
+  //Yuanguo: thus, if we have got here, merge has failed, then this function will continue (as below) to 
+  //         alloc a 'struct request' req for bio, and 
+  //             1. put req in current->plug->list, if caller (e.g. a filesystem) has plugged the block device;
+  //         or
+  //             2. put req in q and run it, if the block device is not plugged;
   //
   //         in both cases, blk_account_io_start(rq, true) will be called:
   //		             disk_stats.time_in_queue += {requests-in-flight} * {time-elpased}
   //		             disk_stats.io_ticks += {time-elpased}
   //                 hd_struct.in_flight[READ/WRITE]++
 
-  //Yuanguo: if we get here, merge has failed.
   
 get_rq:
 	/*
@@ -1755,9 +1754,10 @@ get_rq:
 		 * of a plug trace.
 		 */
 		if (!request_count)
-			trace_block_plug(q);
+			trace_block_plug(q); //Yuanguo: the event/stage 'P(plug)' in blktrace;
 		else {
 			if (request_count >= BLK_MAX_REQUEST_COUNT) {
+        //Yuanguo: we have gather enough requests in current plug, flush it;
 				blk_flush_plug_list(plug, false);
 				trace_block_plug(q);
 			}
@@ -2167,7 +2167,7 @@ void generic_make_request(struct bio *bio)
     //nvme driver to the separate 'multi-queue block layer'. So SATA SDD or even
     //HDD can also benefit from it.
     //
-    //Yuanguo: q->make_request_fn : the function that produces requests to 'q';
+    //Yuanguo: q->make_request_fn : the function that produces requests and put into 'q';
     //         q->request_fn      : the function that consumes requests from 'q';
 		q->make_request_fn(q, bio);
 
@@ -3262,6 +3262,21 @@ EXPORT_SYMBOL(kblockd_schedule_delayed_work_on);
  *   plug. By flushing the pending I/O when the process goes to sleep, we avoid
  *   this kind of deadlock.
  */
+//Yuanguo: 
+//   Tracking blk_plug inside the task_struct has this benefit: if the task (thread) is
+//   going to block (wait for something) between blk_start_plug() and blk_finish_plug(), 
+//   we can easily flush the pending bios before it blocks (because those bios are tracked
+//   inside the task_struct). 
+//   Flushing the pending bios before blocking is important in 2 perspectives: 
+//       a. performance;
+//       b. avoid deadlock:
+//            case-1: if a task is going to block for memory allocation and reclaim (allocation request
+//                    cannot be met and thus reclaim should take place), and the reclaim, in turn, will 
+//                    wait for a page belonging to a bio that is currently residing in the plug, then we
+//                    will get deadlocked without flushing the pending bios before blocking. 
+//            case-2: if a task is going to block for a bio to be finished, and the bio is currently residing
+//                    in the plug, then we will get deadlocked again without flushing the pending bios before 
+//                    blocking;
 void blk_start_plug(struct blk_plug *plug)
 {
 	struct task_struct *tsk = current;
@@ -3303,7 +3318,7 @@ static void queue_unplugged(struct request_queue *q, unsigned int depth,
 			    bool from_schedule)
 	__releases(q->queue_lock)
 {
-	trace_block_unplug(q, depth, !from_schedule);
+	trace_block_unplug(q, depth, !from_schedule); //Yuanguo: the event/stage 'U(unplug)' in blktrace;
 
 	if (from_schedule)
 		blk_run_queue_async(q);
