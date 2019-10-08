@@ -222,6 +222,8 @@ struct dentry *mount_pseudo(struct file_system_type *fs_type, char *name,
 	struct inode *root;
 	struct qstr d_name = QSTR_INIT(name, strlen(name));
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, name=%s\n", __func__, fs_type->name, name);
+
 	s = sget(fs_type, NULL, set_anon_super, MS_NOUSER, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);

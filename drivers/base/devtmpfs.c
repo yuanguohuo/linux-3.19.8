@@ -58,8 +58,10 @@ static struct dentry *dev_mount(struct file_system_type *fs_type, int flags,
 		      const char *dev_name, void *data)
 {
 #ifdef CONFIG_TMPFS
+  printk(KERN_DEBUG "YuanguoDbg func %s(): CONFIG_TMPFS=y fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
 	return mount_single(fs_type, flags, data, shmem_fill_super);
 #else
+  printk(KERN_DEBUG "YuanguoDbg func %s(): CONFIG_TMPFS=n fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
 	return mount_single(fs_type, flags, data, ramfs_fill_super);
 #endif
 }

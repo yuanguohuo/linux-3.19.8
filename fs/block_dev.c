@@ -507,6 +507,7 @@ static const struct super_operations bdev_sops = {
 static struct dentry *bd_mount(struct file_system_type *fs_type,
 	int flags, const char *dev_name, void *data)
 {
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, dev_name=%s, data=%p\n", __func__, fs_type->name, flags, dev_name, data);
 	return mount_pseudo(fs_type, "bdev:", &bdev_sops, NULL, BDEVFS_MAGIC);
 }
 

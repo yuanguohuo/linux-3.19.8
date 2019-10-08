@@ -709,6 +709,8 @@ int do_remount_sb(struct super_block *sb, int flags, void *data, int force)
 	int retval;
 	int remount_ro;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): sb->s_id=%s, flags=%d, data=%p force=%d\n", __func__, sb->s_id, flags, data, force);
+
 	if (sb->s_writers.frozen != SB_UNFROZEN)
 		return -EBUSY;
 
@@ -1102,6 +1104,8 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 	struct super_block *s;
 	int error;
 
+  printk(KERN_DEBUG "YuanguoDbg func %s(): fs_type->name=%s, flags=%d, data=%p\n", __func__, fs_type->name, flags, data);
+
 	s = sget(fs_type, compare_single, set_anon_super, flags, NULL);
 	if (IS_ERR(s))
 		return ERR_CAST(s);
@@ -1161,6 +1165,7 @@ mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
   //for rootfs: rootfs_mount()
   //for fuse: fuse_mount()
   //for bdev: bd_mount()
+  //for devtmpfs: dev_mount()
  
 	root = type->mount(type, flags, name, data);
 	if (IS_ERR(root)) {
