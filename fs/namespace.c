@@ -60,19 +60,28 @@ static int mnt_id_start = 0;
 static int mnt_group_start = 1;
 
  //Yuanguo:
+ //   struct mount    : stand for the mounting relationship (where child-filesystem is mounted and the child-filesystem);
+ //   struct vfsmount : stand for "a filesystem";
+ //   struct path     : stand for "a dentry in a filesystem"
+ //
+ //   "mnt_parent+mnt_mountpoint" has 2 perspectives:
+ //      a. the hash key; in a normal hashtable implementation, the hash key should be kept in the list-item, 
+ //         because it's necessary to identify the item among the conflict items;
+ //      b. "a dentry in a filesystem (parent-filesystem)", so it's where the child-filesystem is mounted; and
+ //         'struct vfsmount mnt' is the child-filesystem;
  //
  //           ......
- //         +------------+    +-------------------+     +-------------------+
- //       4 | hlist_head |    |    struct mount   |     |    struct mount   |
- //         +------------+    +-------------------+     +-------------------+
- //       3 | hlist_head |----+-> mnt_hash -------+-----+-> mnt_hash -------+---> ...
- //         +------------+    |   mnt_parent      |     |   mnt_parent      |
- //       2 | hlist_head |    |   mnt_mountpoint  |     |   mnt_mountpoint  |
- //         +------------+    |   ......          |     |   ......          |
- //       1 | hlist_head |    +-------------------+     +-------------------+
- //         +------------+   the mount list:  m_hash(mnt_parent, mnt_mountpoint) = 3
+ //         +------------+    +----------------------------------+     +----------------------------------+
+ //       4 | hlist_head |    |    struct mount                  |     |    struct mount                  |
+ //         +------------+    +----------------------------------+     +----------------------------------+
+ //       3 | hlist_head |----+-> mnt_hash ----------------------+-----+-> mnt_hash ----------------------+---> ...
+ //         +------------+    |   mnt_parent    (hash key part 1)|     |   mnt_parent    (hash key part 1)|  parent-fs
+ //       2 | hlist_head |    |   mnt_mountpoint(hash key part 2)|     |   mnt_mountpoint(hash key part 2)|  a dentry in parent-fs
+ //         +------------+    |   struct vfsmount mnt            |     |   struct vfsmount mnt            |  child-fs
+ //       1 | hlist_head |    |   ......                         |     |   ......                         |  
+ //         +------------+    +----------------------------------+     +----------------------------------+        
  //       0 | hlist_head |
- //         +------------+
+ //         +------------+             the mount list:  m_hash(mnt_parent, mnt_mountpoint) = 3
  //
  // When lookup the struct mount instance that is mounted on mnt-of-parent-fs, dentry-in-parent-fs:
  //    1. calculate m_hash(mnt-of-parent-fs, dentry-in-parent-fs); the result is 3 for example;
@@ -673,6 +682,9 @@ out:
  *
  * lookup_mnt takes a reference to the found vfsmount.
  */
+//Yuanguo:
+//    param path: a dentry in a filesystem (parent-filesystem);
+//    return    : the filesystem mounted on path (note that a 'struct vfsmount' stands for a filesystem);
 struct vfsmount *lookup_mnt(struct path *path)
 {
 	struct mount *child_mnt;
