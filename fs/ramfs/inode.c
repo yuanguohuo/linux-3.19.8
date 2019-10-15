@@ -131,6 +131,11 @@ static int ramfs_create(struct inode *dir, struct dentry *dentry, umode_t mode, 
 	return ramfs_mknod(dir, dentry, mode | S_IFREG, 0);
 }
 
+//Yuanguo: ln -s {symname} dir/dentry
+//  1. create 'inode';
+//  2. write {symname} as content of the file whose inode is 'inode';
+//  3. dir/dentry--->inode = 'inode';
+//in short: create the file dir/dentry (create inode for it), and write string {symname} into it;
 static int ramfs_symlink(struct inode * dir, struct dentry *dentry, const char * symname)
 {
 	struct inode *inode;
