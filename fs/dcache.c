@@ -110,7 +110,7 @@ static unsigned int d_hash_shift __read_mostly;
 //        3 | hlist_bl_head | ---+--> d_hash ----+--+--> d_hash ----+--+--> d_hash ----+---> ...
 //          +---------------+    |    ......     |  |    ......     |  |    ......     |
 //        2 | hlist_bl_head |    +---------------+  +---------------+  +---------------+
-//          +---------------+     the dentry list:  d_hash(d_parent, d_name.hash) = 3
+//          +---------------+     the dentry list:  hash_32(d_parent, d_name.hash) = 3
 //        1 | hlist_bl_head |    
 //          +---------------+   
 //        0 | hlist_bl_head |
