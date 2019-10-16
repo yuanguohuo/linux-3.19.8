@@ -942,6 +942,11 @@ static struct mount *skip_mnt_tree(struct mount *p)
 	return p;
 }
 
+//Yuanguo: 
+//  1. the returned 'struct vfsmount *' stands for the filesystem being mounted; 
+//  2. the mounting-relationship is not built here. 
+//       a. the outer 'struct mount' stands for the mounting-relationship, it is allocated but not populated here; 
+//       b. caller will get the outer 'struct mount' object (see real_mount() func) and populate it;
 struct vfsmount *
 vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
 {
@@ -970,7 +975,7 @@ vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void 
 		return ERR_CAST(root);
 	}
 
-  //Yuanguo: set root dentry and super block of current mount; they tell "who am I";
+  //Yuanguo: set root dentry and super block of current mount; they tell "who am I" (the filesystem being mounted);
 	mnt->mnt.mnt_root = root;
 	mnt->mnt.mnt_sb = root->d_sb;
   
@@ -2397,6 +2402,13 @@ static struct vfsmount *fs_set_subtype(struct vfsmount *mnt, const char *fstype)
 /*
  * add a mount into a namespace's mount tree
  */
+//Yuanguo: build the mounting relationship.
+//   newmnt: the mounting-relationship to build. it was allocated, but 
+//           only 'mnt' (the child filesystem, or the filesystem being 
+//           mounted) field is correctly populated; the parent info 
+//           (mnt_parent + mnt_mountpoint) is not correctly populated;
+//   path  : a dentry in parent filesystem (a place in parent filesystem where the child
+//           filesystem will be mounted at), by which parent info is retrieved;
 static int do_add_mount(struct mount *newmnt, struct path *path, int mnt_flags)
 {
 	struct mountpoint *mp;
