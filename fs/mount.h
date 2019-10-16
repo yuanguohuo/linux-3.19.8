@@ -34,7 +34,7 @@ struct mount {
 
   //Yuanguo: where this mount is mounted? they tell "who is my parent".
   //Yuanguo: the parent-filesystem and the place/dentry/mountpoint in the parent-filesystem;
-	struct mount *mnt_parent;      //Yuanguo: parent mount;
+	struct mount *mnt_parent;      //Yuanguo: mount of parent-filesystem;
 	struct dentry *mnt_mountpoint; //Yuanguo: the dentry in parent fs where this mount is mounted;
 
   //Yuanguo: the super block and root dentry of this mount; they tell "who am I".

@@ -64,14 +64,17 @@ static int mnt_group_start = 1;
  //   struct vfsmount : stand for "a filesystem";
  //   struct path     : stand for "a dentry in a filesystem"
  //
- //   "mnt_parent + mnt_mountpoint" has 2 perspectives:
+ //   neglecting all other fields except mnt_parent.mnt will make it easy to understand this hashtable (consider
+ //   mnt_parent.mnt only):
+ //
+ //   "mnt_parent.mnt + mnt_mountpoint" has 2 perspectives:
  //      a. the hash key; in a normal hashtable implementation, the hash key should be kept in the list-item, 
  //         because it's necessary to identify the item among the conflict items;
  //      b. "a dentry in a filesystem (parent-filesystem)", so it's where the child-filesystem is mounted; and
  //         'struct vfsmount mnt' is the child-filesystem;
  //
- //      hash-key: mnt_parent + mnt_mountpoint;
- //      hash-val: struct mount (especially 'struct vfsmount mnt' field);
+ //      hash-key: mnt_parent.mnt + mnt_mountpoint;
+ //      hash-val: struct mount (especially the 'struct vfsmount mnt' field);
  //
  //           ......
  //         +------------+    +----------------------------------+     +----------------------------------+
@@ -84,7 +87,7 @@ static int mnt_group_start = 1;
  //       1 | hlist_head |    |   ......                         |     |   ......                         |  
  //         +------------+    +----------------------------------+     +----------------------------------+        
  //       0 | hlist_head |
- //         +------------+             the mount list:  m_hash(mnt_parent, mnt_mountpoint) = 3
+ //         +------------+             the mount list:  m_hash(mnt_parent.mnt, mnt_mountpoint) = 3
  //
  // When lookup the struct mount instance that is mounted on mnt-of-parent-fs, dentry-in-parent-fs:
  //    1. calculate m_hash(mnt-of-parent-fs, dentry-in-parent-fs); the result is 3 for example;
