@@ -329,3 +329,55 @@ ssize_t vfs_read(struct file *file, char __user *buf, size_t count, loff_t *pos)
 	              ----> filp->f_op->read_iter(&kiocb, &iter);  <==> generic_file_read_iter(&kiocb, &iter)
 	                  ----> do_generic_file_read(file, ppos, iter, retval);
 
+
+
+
+
+-------
+                                                    
+                                                    
+                                                    
+
+1. lookup the mountpoint in parent filesystem; ---- in do_mount()
+       user_path(dir_name, &path)             
+2. lookup the file_system_type     ---- in do_new_mount()
+	     type = get_fs_type(fstype);
+3. alloc 'struct mount';           ---- in vfs_kern_mount()
+	     mnt = alloc_vfsmnt(name);
+4. call type->mount(), return the root dentry of the fs being mounted;  ----  mount_fs()     struct  file_system_type
+	     root = type->mount(type, flags, name, data);           ------------------------>        mount
+                                                                                               kill_sb
+
+   file_system_type::mount() should 
+           a. create super_block if not exist (if exist, mount it again
+              somewhere else), link the super_block in global list
+              'super_blocks' and in list type->fs_supers;
+           b. create root inode and link the root inode to list
+              super_block->s_inodes,
+              init root inode->i_op and inode->i_fop;
+           c. create root dentry, 
+              name='/'
+              d_inode=root inode
+              link root dentry in i_dentry of root inode;
+           d. return the root dentry;
+
+5. see the mnt created in step 3, it contains info:   ---- vfs_kern_mount()
+        who am I (the fs being mounted), that's root dentry and super_block;
+        where I am mounted (the parent fs and the mountpoint/dentry in the parent fs)
+   here, 
+        init "who am I" info in mnt; 
+        init "where I am mounted" to myself temporarily;
+
+6. call do_add_mount to add mnt at path  ---- do_new_mount()
+	      err = do_add_mount(real_mount(mnt), path, mnt_flags);
+
+7. see the path got in step 1, it stands for parent: "where I am mounted"    --- do_add_mount()
+   call graft_tree to attach mnt to parent;
+
+8. call mnt_set_mountpoint  ----- attach_recursive_mnt()
+
+9. init "where I am mounted" of mnt with parent;   ------mnt_set_mountpoint()
+   link the mnt->mnt_mp_list into mountpoint/dentry->mp->m_list, so when
+   mountpoint/dentry is accessed, it will check its mp->m_list, to get
+   children filesystems mounted on it;
+    

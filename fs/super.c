@@ -1123,7 +1123,7 @@ struct dentry *mount_single(struct file_system_type *fs_type,
 }
 EXPORT_SYMBOL(mount_single);
 
-//Yuanguo: return the root dentry of the mounted fs; 
+//Yuanguo: return the root dentry of the fs being mounted; 
 struct dentry *
 mount_fs(struct file_system_type *type, int flags, const char *name, void *data)
 {

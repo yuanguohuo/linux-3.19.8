@@ -1633,7 +1633,16 @@ struct inode_operations {
 	int (*create) (struct inode *,struct dentry *, umode_t, bool);
 	int (*link) (struct dentry *,struct inode *,struct dentry *);
 	int (*unlink) (struct inode *,struct dentry *);
+
+
+	//Yuanguo: int (*symlink) (struct inode * dir ,struct dentry * dentry, const char * symname)
+  //                   ln -s {symname} dir/dentry
+	//  1. create 'inode';
+	//  2. write {symname} as content of the file whose inode is 'inode';
+	//  3. dir/dentry--->inode = 'inode';
+	//in short: create the file dir/dentry (create inode for it), and write string {symname} into it;
 	int (*symlink) (struct inode *,struct dentry *,const char *);
+
 	int (*mkdir) (struct inode *,struct dentry *,umode_t);
 	int (*rmdir) (struct inode *,struct dentry *);
 	int (*mknod) (struct inode *,struct dentry *,umode_t,dev_t);
