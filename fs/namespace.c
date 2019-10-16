@@ -60,15 +60,18 @@ static int mnt_id_start = 0;
 static int mnt_group_start = 1;
 
  //Yuanguo:
- //   struct mount    : stand for the mounting relationship (where child-filesystem is mounted and the child-filesystem);
+ //   struct mount    : stand for the mounting relationship (who is mounted at where);
  //   struct vfsmount : stand for "a filesystem";
  //   struct path     : stand for "a dentry in a filesystem"
  //
- //   "mnt_parent+mnt_mountpoint" has 2 perspectives:
+ //   "mnt_parent + mnt_mountpoint" has 2 perspectives:
  //      a. the hash key; in a normal hashtable implementation, the hash key should be kept in the list-item, 
  //         because it's necessary to identify the item among the conflict items;
  //      b. "a dentry in a filesystem (parent-filesystem)", so it's where the child-filesystem is mounted; and
  //         'struct vfsmount mnt' is the child-filesystem;
+ //
+ //      hash-key: mnt_parent + mnt_mountpoint;
+ //      hash-val: struct mount (especially 'struct vfsmount mnt' field);
  //
  //           ......
  //         +------------+    +----------------------------------+     +----------------------------------+

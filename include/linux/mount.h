@@ -62,6 +62,8 @@ struct mnt_namespace;
 #define MNT_SYNC_UMOUNT		0x2000000
 #define MNT_MARKED		0x4000000
 
+//Yuanguo: 'struct vfsmount' is "a filesystem" actually; it should be named as 
+//  "mounted_fs" or sth simliar;
 struct vfsmount {
 	struct dentry *mnt_root;	/* root of the mounted tree */
 	struct super_block *mnt_sb;	/* pointer to superblock */
