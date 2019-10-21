@@ -64,6 +64,9 @@ static int mnt_group_start = 1;
  //   struct vfsmount : stand for "a filesystem";
  //   struct path     : stand for "a dentry in a filesystem"
  //
+ //   hash: parent-fs      + dentry in parent-fs ==> child-fs
+ //         mnt_parent.mnt + mnt_mountpoint      ==> child-fs
+ //
  //   neglecting all other fields except mnt_parent.mnt will make it easy to understand this hashtable (consider
  //   mnt_parent.mnt only):
  //
@@ -96,7 +99,9 @@ static int mnt_group_start = 1;
  //            mount.mnt_mountpoint == dentry-in-parent-fs
  // see __lookup_mnt()
 static struct hlist_head *mount_hashtable __read_mostly;
+
 static struct hlist_head *mountpoint_hashtable __read_mostly;
+
 static struct kmem_cache *mnt_cache __read_mostly;
 static DECLARE_RWSEM(namespace_sem);
 
