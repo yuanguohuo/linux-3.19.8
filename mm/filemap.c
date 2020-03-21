@@ -1565,12 +1565,23 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
 		loff_t isize;
 		unsigned long nr, ret;
 
-    //Yuanguo: this is kernel preemption, because switch takes place in kernel mode, and:
-    //  1. 'current' is NOT voluntarily relinquishing CPU, because of having to sleep waiting for resource;
-    //  2. 'current' is NOT about to switch to User Mode;
-    //Note: the main characteristic of a preemptive kernel is that a process running in Kernel Mode can be 
-    //      replaced (not voluntarily relinquish CPU) by another process while in the middle of a kernel 
-    //      function.
+    //Yuanguo: there were mainly 2 preemption model: 
+    //    a. CONFIG_PREEMPT=n : maximise throughput;    in config menu: No Forced Preemption (Server)
+    //    b. CONFIG_PREEMPT=y : improve interactivity;  in config menu: Preemptible Kernel (Low-Latency Desktop)
+    //For example, a low priority process traps into kernel, and calls a kernel function which is pure computation
+    //(for example, a busy loop for 10 seconds):
+    //    a. high priority process has to wait for 10 seconds until the low priority process is about to switch to 
+    //       user mode;
+    //    b. high priority process doesn't have to wait; the low priority process is preempted;
+    //At this time, we can tell a kernel preemption by: 
+    //    i.  switch in the middle of a kernel functin;
+    //    ii. NOT voluntarily relinquish CPU waiting for resource;
+    //    ii. NOT about to switch to sser mode.
+    //Later (2005), the third model is added, and now it's the default.
+    //    c. CONFIG_PREEMPT_VOLUNTARY=y; in config menu: Voluntary Kernel Preemption (Desktop).
+    //Voluntary preemption works by adding a cond_resched() (reschedule-if-needed) call to every might_sleep() check.
+    //in the above example, the kernel function may work for 5 seconds and then call cond_resched() and then work for
+    //another 5 seconds;
 		cond_resched();
 find_page:
     //Yuanguo: look up the PageCache to find the descriptor of the page at 'index';
