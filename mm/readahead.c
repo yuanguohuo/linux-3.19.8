@@ -549,6 +549,10 @@ void page_cache_sync_readahead(struct address_space *mapping,
 			       pgoff_t offset, unsigned long req_size)
 {
 	/* no read-ahead */
+  //Yuanguo: after patch-187024 (https://lore.kernel.org/patchwork/patch/187024/), ra_pages==0 
+  //  holds only when multi-page read IO won't help or should be avoided
+  //      - it's ramfs/tmpfs/hugetlbfs/sysfs/configfs
+  //      - some IO error happened
 	if (!ra->ra_pages)
 		return;
 
@@ -567,6 +571,7 @@ void page_cache_sync_readahead(struct address_space *mapping,
   //            The specified data will not be accessed in the near future.
 
 	/* be dumb */
+  //Yuanguo: patch-187024 (https://lore.kernel.org/patchwork/patch/187024/) added this for POSIX_FADV_RANDOM:
 	if (filp && (filp->f_mode & FMODE_RANDOM)) {
 		force_page_cache_readahead(mapping, filp, offset, req_size);
 		return;
