@@ -1574,20 +1574,26 @@ static ssize_t do_generic_file_read(struct file *filp, loff_t *ppos,
     //       user mode;
     //    b. high priority process doesn't have to wait; the low priority process is preempted;
     //At this time, we can tell a kernel preemption by: 
-    //    i.  switch in the middle of a kernel functin;
+    //    i.  NOT about to switch to user mode (switch in the middle of a kernel function)
     //    ii. NOT voluntarily relinquish CPU waiting for resource;
-    //    ii. NOT about to switch to sser mode.
     //Later (2005), the third model is added, and now it's the default.
     //    c. CONFIG_PREEMPT_VOLUNTARY=y; in config menu: Voluntary Kernel Preemption (Desktop).
     //Voluntary preemption works by adding a cond_resched() (reschedule-if-needed) call to every might_sleep() check.
     //in the above example, the kernel function may work for 5 seconds and then call cond_resched() and then work for
     //another 5 seconds;
+    //
+    //Yuanguo: No, cond_resched() should have nothing to do with 'Voluntary preemption', but rather, might_sleep is
+    //related to 'Voluntary preemption';
 		cond_resched();
 find_page:
     //Yuanguo: look up the PageCache to find the descriptor of the page at 'index';
 		page = find_get_page(mapping, index);
 
     //Yuanguo: the page is not in PageCache, read it and put it in PageCache; 
+    //   likely for the 1st page, unlikely to subsequent pages...
+    //       1. POSIX_FADV_RANDOM: page_cache_sync_readahead() will read all pages readquested, unless limited by 
+    //          /sys/block/sda/queue/max_sectors_kb or /sys/block/sda/queue/read_ahead_kb, in which case, subsequent
+    //          rounds are needed;
 		if (!page) {
 			page_cache_sync_readahead(mapping,
 					ra, filp,
@@ -1762,6 +1768,7 @@ page_not_up_to_date_locked:
 		}
 
 readpage:
+    //Yuanguo: page-by-page read, unlikly to happen; read ahead should have caught most of the cases;
 		/*
 		 * A previous I/O error may have been due to temporary
 		 * failures, eg. multipath errors.
@@ -1812,6 +1819,7 @@ readpage_error:
 		goto out;
 
 no_cached_page:
+    //Yuanguo: page-by-page read, unlikly to happen; read ahead should have caught most of the cases;
 		/*
 		 * Ok, it wasn't cached, so we need to create a new
 		 * page..

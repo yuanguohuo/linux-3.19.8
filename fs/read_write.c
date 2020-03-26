@@ -428,7 +428,9 @@ ssize_t new_sync_read(struct file *filp, char __user *buf, size_t len, loff_t *p
   //Yuanguo: where to put the data we read (data destination).
 	iov_iter_init(&iter, READ, &iov, 1, len);
 
-  //Yuanguo: for ext4, filp->f_op->read_iter = generic_file_read_iter
+  //Yuanguo: for ext4, filp->f_op->read_iter = generic_file_read_iter, see ext4_file_operations in fs/ext4/file.c;
+  //         for xfs,  filp->f_op->read_iter = xfs_file_read_iter, see xfs_file_operations in fs/xfs/xfs_file.c, which
+  //                   also calls generic_file_read_iter;
 	ret = filp->f_op->read_iter(&kiocb, &iter);
 	if (-EIOCBQUEUED == ret)
 		ret = wait_on_sync_kiocb(&kiocb);
@@ -445,7 +447,8 @@ ssize_t __vfs_read(struct file *file, char __user *buf, size_t count,
 {
 	ssize_t ret;
 
-  //Yuanguo: for ext4, file->f_op->read = new_sync_read
+  //Yuanguo: for ext4, file->f_op->read = new_sync_read, see ext4_file_operations in fs/ext4/file.c;
+  //         for xfs,  file->f_op->read = new_sync_read, see xfs_file_operations in fs/xfs/xfs_file.c;
 	if (file->f_op->read)
 		ret = file->f_op->read(file, buf, count, pos);
 	else if (file->f_op->aio_read)

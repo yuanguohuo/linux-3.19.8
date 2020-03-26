@@ -125,7 +125,9 @@ static int read_pages(struct address_space *mapping, struct file *filp,
 
   //Yuanguo: for ext4, mapping->a_ops->readpages = ext4_readpages, regardless
   //      what the journal mode is. It will add pages into page cache and then
-  //      fill the pages with data read from disk ... 
+  //      fill the pages with data read from disk ... see ext4_aops in fs/ext4/inode.c;
+  //      for xfs, mapping->a_ops->readpages = xfs_vm_readpages, see xfs_address_space_operations
+  //      in fs/xfs/xfs_aops.c;
 	if (mapping->a_ops->readpages) {
 		ret = mapping->a_ops->readpages(filp, mapping, pages, nr_pages);
 		/* Clean up the remaining pages */
